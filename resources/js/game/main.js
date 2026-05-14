@@ -34,7 +34,8 @@ let cursors;
 let canJump = false;
 
 
-let platforms = [];
+let levelData = [];
+let platformObjects = [];
 
 
 
@@ -52,6 +53,25 @@ function preload() {
         "/assets/South_Park.png"
     );
 }
+function createPlatform(scene, platformData) {
+// neemt JSON bestand op met x,y, width, height en maakt een platform aan in de scene
+    const rect = scene.add.rectangle(
+        platformData.x,
+        platformData.y,
+        platformData.width,
+        platformData.height,
+        0x654321
+    );
+    scene.matter.add.gameObject(rect, {
+        isStatic: true
+    });
+    platformObjects.push(rect);
+}
+function loadLevel(scene, levelData) {
+    levelData.forEach(platformData => {
+        createPlatform(scene,platformData);
+    });
+}
 
 function create() {
 
@@ -61,73 +81,40 @@ function create() {
     player.setBody({
         type: "rectangle",
         width: 80,
-        height: player.height * 0.2
+        height: player.height * 0.25
     });
-    player.setOrigin(0.45, 0.54);
+    player.setOrigin(0.50, 0.59);
     player.setFixedRotation();
 /*************************PLAYER************************************ */
 
-
-    
     this.matter.world.setBounds(0,0,1500,800);
     cursors = this.input.keyboard.createCursorKeys();
+    this.input.mouse.disableContextMenu();
 
 
 /*************************Building Platforms************************************ */
 
-    this.input.on("pointerdown", (pointer) => {
-        isDrawing = true;
-        startX = pointer.x;
-        startY = pointer.y;
+    levelData = [
+    {
+        x: 400,
+        y: 500,
+        width: 300,
+        height: 40
+    },
 
-        previewRect = this.add.rectangle(startX,startY,1,1,0x00ff00,0.4);  // BELANGRIJK: START MET 1X1, ANDERS ZIE JE HET NIET
-        previewRect.setOrigin(0, 0);
-    });
+    {
+        x: 800,
+        y: 350,
+        width: 200,
+        height: 40
+    }
+    ];
 
-    this.input.on("pointermove", (pointer) => { //pointer verandert tijdens het tekenen
-
-        if (!isDrawing) return;
-
-        const width = pointer.x - startX;
-        const height = pointer.y - startY;
-
-        previewRect.width = width;
-        previewRect.height = height;
-    });
-
-
-    this.input.on("pointerup", (pointer) => {
-
-        if (!isDrawing) return;
-
-        isDrawing = false;
-
-        const width = pointer.x - startX;
-        const height = pointer.y - startY;
-
-        const centerX = startX + width / 2;
-        const centerY = startY + height / 2;
-
-
-        const platformData = {
-            x: centerX,
-            y: centerY,
-            width: Math.abs(width),
-            height: Math.abs(height)
-        };
-
-        platforms.push(platformData);
-
-        const rect = this.add.rectangle(centerX,centerY,Math.abs(width),Math.abs(height),0x654321); // Rechthoek getekentd
-
-        //colission toeveogen
-        this.matter.add.gameObject(rect, {isStatic: true});
-        previewRect.destroy();
-    });
+    loadLevel(this, levelData);
     /*************************Building platforms************************************ */
 
 
-
+    /*************************Jumping colission************************************ */
     this.matter.world.on("collisionstart", (event) => {
 
     event.pairs.forEach((pair) => {
@@ -144,6 +131,8 @@ function create() {
         }
     });
 });
+    /*************************Jumping Collision************************************ */
+
 
 }
 
@@ -152,27 +141,25 @@ function update() {
     const speed = 5;
 
     if (cursors.left.isDown) {
-
         player.setVelocityX(-speed);
-
     }
     else if (cursors.right.isDown) {
-
         player.setVelocityX(speed);
-
     }
     else {
-
         player.setVelocityX(0);
     }
 
 
     if (cursors.up.isDown && canJump) {
-
     player.setVelocityY(-10);
-
     canJump = false;
-}
+    }
+
+
+    /*************************Hover************************************ */
+    /*************************Hover************************************ */
+
 }
 
 new Phaser.Game(config);
