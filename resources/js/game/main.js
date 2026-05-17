@@ -52,6 +52,10 @@ function preload() {
         "character",
         "/assets/South_Park.png"
     );
+    this.load.image(
+        "levelImage",
+        "/assets/Platform.png"
+    );
 }
 function createPlatform(scene, platformData) {
 // neemt JSON bestand op met x,y, width, height en maakt een platform aan in de scene
@@ -71,6 +75,66 @@ function loadLevel(scene, levelData) {
     levelData.forEach(platformData => {
         createPlatform(scene,platformData);
     });
+}
+
+
+function imageToLevelData(scene) {
+    const texture = scene.textures.get("levelImage");
+    const source = texture.getSourceImage(); // Get image
+
+    const canvas = document.createElement("canvas");
+    canvas.width = source.width;
+    canvas.height = source.height;
+    const ctx = canvas.getContext("2d"); // canvas gemaakt
+    ctx.drawImage(source, 0, 0); // foto op canvas tekenen
+    const imageData = ctx.getImageData(0, 0, source.width, source.height); // Pixel data ophalen
+    const pixels = imageData.data; // RGBA data in array
+
+    for (let y = 0; y < source.height; y++) { 
+        let runStart = null; 
+        let runLength = 0; 
+
+        for (let x = 0; x < source.width; x++) {
+            const index = (y * source.width + x) * 4;
+            const r = pixels[index];
+            const g = pixels[index + 1];
+            const b = pixels[index + 2];
+            const a = pixels[index + 3];
+
+            const isBlack = (r < 30 && g < 30 && b < 30 && a > 200);
+
+            if (isBlack) {
+                if (runStart === null) {
+                    runStart = x;
+                    runLength = 1;
+                } else {
+                    runLength++;
+                }
+            } else {
+                if (runStart !== null) {
+                    levelData.push({
+                        x: runStart + runLength / 2,
+                        y: y,
+                        width: runLength,
+                        height: 1
+                    });
+                    runStart = null;
+                    runLength = 0;
+                }
+            }
+        }
+
+        if (runStart !== null) {
+            levelData.push({
+                x: runStart + runLength / 2,
+                y: y,
+                width: runLength,
+                height: 1
+            });
+        }
+    }
+
+    console.log("Platforms created:", levelData.length);
 }
 
 function create() {
@@ -94,22 +158,7 @@ function create() {
 
 /*************************Building Platforms************************************ */
 
-    levelData = [
-    {
-        x: 400,
-        y: 500,
-        width: 300,
-        height: 40
-    },
-
-    {
-        x: 800,
-        y: 350,
-        width: 200,
-        height: 40
-    }
-    ];
-
+    imageToLevelData(this);
     loadLevel(this, levelData);
     /*************************Building platforms************************************ */
 
