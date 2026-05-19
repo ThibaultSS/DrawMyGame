@@ -18,7 +18,7 @@ const config = {
                 y: 1
             },
 
-            debug: true
+            debug: false
         }
     },
 
@@ -36,6 +36,7 @@ let canJump = false;
 
 let levelData = [];
 let platformObjects = [];
+let outlines = [];
 
 
 
@@ -53,9 +54,10 @@ function preload() {
         "/assets/South_Park.png"
     );
     this.load.image(
-        "levelImage",
-        "/assets/Platform.png"
-    );
+    "levelImage",
+    window.levelImage
+);
+console.log(window.levelImage);
 }
 function createPlatform(scene, platformData) {
 // neemt JSON bestand op met x,y, width, height en maakt een platform aan in de scene
@@ -71,17 +73,164 @@ function createPlatform(scene, platformData) {
     });
     platformObjects.push(rect);
 }
+
 function loadLevel(scene, levelData) {
     levelData.forEach(platformData => {
         createPlatform(scene,platformData);
     });
 }
 
+//herkennen van verbonden zwarte pixels in de afbeelding en groepeert ze als vormen.
+function getConnectedShapes(pixels, width, height) {
+    const visited = new Set();
+    const shapes = [];
 
+    function isBlack(x, y) {
+        const index = (y * width + x) * 4;
+        const r = pixels[index];
+        const g = pixels[index + 1];
+        const b = pixels[index + 2];
+        const a = pixels[index + 3];
+
+        return (r < 30 && g < 30 && b < 30 && a > 200);
+    }
+
+    function floodFill(startX, startY) {
+        const stack = [[startX, startY]];
+        const shape = [];
+
+        while (stack.length > 0) {
+            const [x, y] = stack.pop();
+            const key = `${x},${y}`;
+            if (visited.has(key)) continue;
+            visited.add(key);
+            if (!isBlack(x, y)) continue;
+            shape.push({ x, y });
+            stack.push([x + 1, y]);
+            stack.push([x - 1, y]);
+            stack.push([x, y + 1]);
+            stack.push([x, y - 1]);
+        }
+
+        return shape;
+    }
+
+    for (let y = 0; y < height; y++) {
+        for (let x = 0; x < width; x++) {
+            const key = `${x},${y}`;
+            if (visited.has(key)) continue;
+            if (isBlack(x, y)) {
+                const shape = floodFill(x, y);
+                if (shape.length > 0) {
+                    shapes.push(shape);
+                }
+            }
+        }
+    }
+    return shapes;
+}
+
+function getOutline(shape) {
+
+    const pixelSet = new Set(
+        shape.map(p => `${p.x},${p.y}`)
+    );
+
+    const outline = [];
+
+    shape.forEach(pixel => {
+
+        const x = pixel.x;
+        const y = pixel.y;
+
+        const neighbors = [
+            `${x+1},${y}`,
+            `${x-1},${y}`,
+            `${x},${y+1}`,
+            `${x},${y-1}`
+        ];
+
+        const isEdge = neighbors.some(
+            n => !pixelSet.has(n)
+        );
+
+        if (isEdge) {
+            outline.push(pixel);
+        }
+
+    });
+
+    return outline;
+}
+
+function traceOutline(outline) {
+
+    const remaining = [...outline];
+
+    const ordered = [];
+
+    ordered.push(remaining.shift());
+
+    while (remaining.length > 0) {
+
+        const current =
+            ordered[ordered.length - 1];
+
+        let closestIndex = 0;
+        let closestDistance = Infinity;
+
+        remaining.forEach((point,index)=>{
+
+            const dx =
+                point.x - current.x;
+
+            const dy =
+                point.y - current.y;
+
+            const dist =
+                dx*dx + dy*dy;
+
+            if (dist < closestDistance) {
+
+                closestDistance = dist;
+                closestIndex = index;
+
+            }
+
+        });
+
+        ordered.push(
+            remaining.splice(
+                closestIndex,
+                1
+            )[0]
+        );
+
+    }
+
+    return ordered;
+}
+
+function simplifyOutline(outline, step = 10) {
+
+    const simplified = [];
+
+    for (let i = 0; i < outline.length; i += step) {
+        simplified.push(outline[i]);
+    }
+
+    return simplified;
+}
+
+//omvormen van afbeelding naar scene data
 function imageToLevelData(scene) {
+
     const texture = scene.textures.get("levelImage");
     const source = texture.getSourceImage(); // Get image
-
+    console.log(texture);
+console.log(source);
+console.log(source.width);
+console.log(source.height);
     const canvas = document.createElement("canvas");
     canvas.width = source.width;
     canvas.height = source.height;
@@ -90,6 +239,9 @@ function imageToLevelData(scene) {
     const imageData = ctx.getImageData(0, 0, source.width, source.height); // Pixel data ophalen
     const pixels = imageData.data; // RGBA data in array
 
+
+
+    /*
     for (let y = 0; y < source.height; y++) { 
         let runStart = null; 
         let runLength = 0; 
@@ -136,6 +288,63 @@ function imageToLevelData(scene) {
 
     console.log("Platforms created:", levelData.length);
 }
+    */
+   /******************************************
+   const shapes = getConnectedShapes(pixels, source.width, source.height);
+    shapes.forEach(shape => {
+        const xs = shape.map(p => p.x);
+        const ys = shape.map(p => p.y);
+        const minX = Math.min(...xs);
+        const maxX = Math.max(...xs);
+        const minY = Math.min(...ys);
+        const maxY = Math.max(...ys);
+        levelData.push({
+            x: minX + (maxX - minX) / 2,
+            y: minY + (maxY - minY) / 2,
+            width: maxX - minX + 1,
+            height: maxY - minY + 1
+        });
+    });
+
+    console.log("Platforms created:", levelData.length);
+    ****************************************/
+   const shapes = getConnectedShapes(
+    pixels,
+    source.width,
+    source.height
+    );
+
+    outlines = shapes.map(shape => {
+
+    const outline =
+        getOutline(shape);
+
+    const traced =
+        traceOutline(outline);
+
+    return simplifyOutline(
+        traced,
+        8
+    );
+
+});
+
+console.log(outlines);
+    
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 function create() {
 
@@ -183,7 +392,143 @@ function create() {
     /*************************Jumping Collision************************************ */
 
 
+
+
+
+
+        /*************************Drawing platforms visualize************************************ */
+
+ const graphics =
+        this.add.graphics();
+
+    graphics.fillStyle(
+        0x654321
+    );
+
+    outlines.forEach(shape => {
+
+        if (shape.length < 10) return;
+
+        graphics.beginPath();
+
+        graphics.moveTo(
+            shape[0].x,
+            shape[0].y
+        );
+
+        shape.forEach(point => {
+
+            graphics.lineTo(
+                point.x,
+                point.y
+            );
+
+        });
+
+        graphics.closePath();
+
+        graphics.fillPath();
+
+    });
+
+/*************************CREATE COLLISION************************************ */
+
+    outlines.forEach(shape => {
+
+        if (shape.length < 10) return;
+
+        const center =
+            Phaser.Physics
+            .Matter
+            .Matter
+            .Vertices
+            .centre(shape);
+
+        const centerX =
+            center.x;
+
+        const centerY =
+            center.y;
+
+        const relativeVertices =
+            shape.map(p => ({
+                x: p.x - centerX,
+                y: p.y - centerY
+            }));
+
+        const body =
+            this.matter.add.fromVertices(
+                centerX,
+                centerY,
+                relativeVertices,
+                {
+                    isStatic:true
+                }
+            );
+
+        if (body) {
+
+            const bounds =
+                body.bounds;
+
+            const bodyCenterX =
+                (bounds.min.x +
+                bounds.max.x)/2;
+
+            const bodyCenterY =
+                (bounds.min.y +
+                bounds.max.y)/2;
+
+            const shapeCenterX =
+                shape.reduce(
+                    (sum,p)=>sum+p.x,
+                    0
+                ) / shape.length;
+
+            const shapeCenterY =
+                shape.reduce(
+                    (sum,p)=>sum+p.y,
+                    0
+                ) / shape.length;
+
+            Phaser.Physics
+            .Matter
+            .Matter
+            .Body
+            .setPosition(
+                body,
+                {
+                    x:
+                    body.position.x +
+                    (shapeCenterX - bodyCenterX),
+
+                    y:
+                    body.position.y +
+                    (shapeCenterY - bodyCenterY)
+                }
+            );
+
+        }
+
+    });
+
+        /*************************Drawing platforms visualize************************************ */
+
 }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 function update() {
 

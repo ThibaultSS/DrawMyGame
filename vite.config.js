@@ -17,6 +17,10 @@ export default defineConfig({
         tailwindcss(),
     ],
     server: {
+        host: '0.0.0.0',
+        hmr: {
+            host: 'drawmygame.test',
+        },
         watch: {
             ignored: ['**/storage/framework/views/**'],
         },
