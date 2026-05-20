@@ -8,7 +8,7 @@ const config = {
 
     parent: "game-container",
 
-    backgroundColor: "#9999F8",
+    backgroundColor: "#AFAFAF",
 
     physics: {
         default: "matter",
@@ -33,11 +33,13 @@ let player;
 let cursors;
 let canJump = false;
 
-
+/****Platform****/
 let levelData = [];
 let platformObjects = [];
 let outlines = [];
 
+/****Platform****/
+let goalOutlines = [];
 
 
 let isDrawing = false;
@@ -57,77 +59,134 @@ function preload() {
     "levelImage",
     window.levelImage
 );
-console.log(window.levelImage);
 }
-function createPlatform(scene, platformData) {
-// neemt JSON bestand op met x,y, width, height en maakt een platform aan in de scene
-    const rect = scene.add.rectangle(
-        platformData.x,
-        platformData.y,
-        platformData.width,
-        platformData.height,
-        0x654321
+
+function isBlack(x, y, pixels, width) {
+
+    const index = (y * width + x) * 4;
+
+    const r = pixels[index];
+    const g = pixels[index + 1];
+    const b = pixels[index + 2];
+    const a = pixels[index + 3];
+
+    return (
+        r < 30 &&
+        g < 30 &&
+        b < 30 &&
+        a > 200
     );
-    scene.matter.add.gameObject(rect, {
-        isStatic: true
-    });
-    platformObjects.push(rect);
 }
 
-function loadLevel(scene, levelData) {
-    levelData.forEach(platformData => {
-        createPlatform(scene,platformData);
-    });
-}
 
+function isRed(x, y, pixels, width) {
+
+    const index = (y * width + x) * 4;
+
+    const r = pixels[index];
+    const g = pixels[index + 1];
+    const b = pixels[index + 2];
+    const a = pixels[index + 3];
+
+    return (
+        r > 200 &&
+        g < 30 &&
+        b < 30 &&
+        a > 200
+    );
+}
 //herkennen van verbonden zwarte pixels in de afbeelding en groepeert ze als vormen.
-function getConnectedShapes(pixels, width, height) {
+function getConnectedShapes(
+    pixels,
+    width,
+    height,
+    colorCheck
+) {
+
     const visited = new Set();
     const shapes = [];
 
-    function isBlack(x, y) {
-        const index = (y * width + x) * 4;
-        const r = pixels[index];
-        const g = pixels[index + 1];
-        const b = pixels[index + 2];
-        const a = pixels[index + 3];
-
-        return (r < 30 && g < 30 && b < 30 && a > 200);
-    }
-
     function floodFill(startX, startY) {
-        const stack = [[startX, startY]];
+
+        const stack = [[startX,startY]];
         const shape = [];
 
         while (stack.length > 0) {
-            const [x, y] = stack.pop();
+
+            const [x,y] = stack.pop();
+
             const key = `${x},${y}`;
-            if (visited.has(key)) continue;
+
+            if (visited.has(key))
+                continue;
+
             visited.add(key);
-            if (!isBlack(x, y)) continue;
-            shape.push({ x, y });
-            stack.push([x + 1, y]);
-            stack.push([x - 1, y]);
-            stack.push([x, y + 1]);
-            stack.push([x, y - 1]);
+
+            if (
+                !colorCheck(
+                    x,
+                    y,
+                    pixels,
+                    width
+                )
+            ) continue;
+
+            shape.push({x,y});
+
+            stack.push([x+1,y]);
+            stack.push([x-1,y]);
+            stack.push([x,y+1]);
+            stack.push([x,y-1]);
+
         }
 
         return shape;
     }
 
     for (let y = 0; y < height; y++) {
+
         for (let x = 0; x < width; x++) {
-            const key = `${x},${y}`;
-            if (visited.has(key)) continue;
-            if (isBlack(x, y)) {
-                const shape = floodFill(x, y);
-                if (shape.length > 0) {
-                    shapes.push(shape);
+
+            const key =
+                `${x},${y}`;
+
+            if (
+                visited.has(key)
+            ) continue;
+
+            if (
+                colorCheck(
+                    x,
+                    y,
+                    pixels,
+                    width
+                )
+            ) {
+
+                const shape =
+                    floodFill(
+                        x,
+                        y
+                    );
+
+                if (
+                    shape.length > 0
+                ) {
+
+                    shapes.push(
+                        shape
+                    );
+
                 }
+
             }
+
         }
+
     }
+
     return shapes;
+
 }
 
 function getOutline(shape) {
@@ -227,10 +286,6 @@ function imageToLevelData(scene) {
 
     const texture = scene.textures.get("levelImage");
     const source = texture.getSourceImage(); // Get image
-    console.log(texture);
-console.log(source);
-console.log(source.width);
-console.log(source.height);
     const canvas = document.createElement("canvas");
     canvas.width = source.width;
     canvas.height = source.height;
@@ -308,13 +363,35 @@ console.log(source.height);
 
     console.log("Platforms created:", levelData.length);
     ****************************************/
-   const shapes = getConnectedShapes(
+    const shapes = getConnectedShapes(
     pixels,
     source.width,
-    source.height
+    source.height,
+    isBlack
+    );
+
+    const goalShapes = getConnectedShapes(
+    pixels,
+    source.width,
+    source.height,
+    isRed
     );
 
     outlines = shapes.map(shape => {
+
+    const outline =
+        getOutline(shape);
+
+    const traced =
+        traceOutline(outline);
+
+    return simplifyOutline(
+        traced,
+        8
+    );
+
+});
+goalOutlines = goalShapes.map(shape => {
 
     const outline =
         getOutline(shape);
@@ -368,27 +445,48 @@ function create() {
 /*************************Building Platforms************************************ */
 
     imageToLevelData(this);
-    loadLevel(this, levelData);
+
     /*************************Building platforms************************************ */
 
 
     /*************************Jumping colission************************************ */
-    this.matter.world.on("collisionstart", (event) => {
+this.matter.world.on(
+    "collisionstart",
+    (event)=>{
 
-    event.pairs.forEach((pair) => {
+        event.pairs.forEach(pair=>{
 
-        const bodyA = pair.bodyA;
-        const bodyB = pair.bodyB;
+            const bodyA = pair.bodyA;
+            const bodyB = pair.bodyB;
 
+            // Jump logic
+            if(
+                bodyA.gameObject===player ||
+                bodyB.gameObject===player
+            ){
+                canJump = true;
+            }
 
-        if (
-            bodyA.gameObject === player ||
-            bodyB.gameObject === player
-        ) {
-            canJump = true;
-        }
-    });
-});
+            // Win logic
+            const playerCollision =
+                bodyA.gameObject===player ||
+                bodyB.gameObject===player;
+
+            const goalCollision =
+                bodyA.label==="goal" ||
+                bodyB.label==="goal";
+
+            if(
+                playerCollision &&
+                goalCollision
+            ){
+                alert("You won");
+            }
+
+        });
+
+    }
+);
     /*************************Jumping Collision************************************ */
 
 
@@ -402,7 +500,7 @@ function create() {
         this.add.graphics();
 
     graphics.fillStyle(
-        0x654321
+        0x000000
     );
 
     outlines.forEach(shape => {
@@ -511,6 +609,67 @@ function create() {
         }
 
     });
+    goalOutlines.forEach(shape=>{
+
+    if(shape.length<10) return;
+
+    const graphics =
+        this.add.graphics();
+
+    graphics.fillStyle(
+        0xff0000
+    );
+
+    graphics.beginPath();
+
+    graphics.moveTo(
+        shape[0].x,
+        shape[0].y
+    );
+
+    shape.forEach(point=>{
+
+        graphics.lineTo(
+            point.x,
+            point.y
+        );
+
+    });
+
+    graphics.closePath();
+
+    graphics.fillPath();
+
+
+    const center =
+        Phaser.Physics.Matter.Matter
+        .Vertices.centre(shape);
+
+    const goal =
+        this.matter.add.fromVertices(
+            center.x,
+            center.y,
+            shape.map(p=>({
+                x:p.x-center.x,
+                y:p.y-center.y
+            })),
+            {
+                isStatic:true,
+                isSensor:true
+            }
+        );
+
+    goal.label = "goal";
+
+if (goal.parts) {
+
+    goal.parts.forEach(part => {
+        part.label = "goal";
+    });
+
+}
+
+});
 
         /*************************Drawing platforms visualize************************************ */
 
