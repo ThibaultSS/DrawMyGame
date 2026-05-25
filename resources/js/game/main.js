@@ -405,8 +405,6 @@ goalOutlines = goalShapes.map(shape => {
     );
 
 });
-
-console.log(outlines);
     
 }
 
@@ -421,7 +419,130 @@ console.log(outlines);
 
 
 
+function createObjects(
+    scene,
+    shapes,
+    color,
+    physicsOptions = {},
+    label = null
+) {
+console.log("Creating:", shapes);
+    const graphics = scene.add.graphics();
 
+    graphics.fillStyle(color);
+
+    shapes.forEach(shape => {
+
+        if (shape.length < 10) return;
+
+        // Draw object
+
+        graphics.beginPath();
+
+        graphics.moveTo(
+            shape[0].x,
+            shape[0].y
+        );
+
+        shape.forEach(point => {
+
+            graphics.lineTo(
+                point.x,
+                point.y
+            );
+
+        });
+
+        graphics.closePath();
+        graphics.fillPath();
+
+
+        // Physics
+
+        const center =
+            Phaser.Physics.Matter
+            .Matter.Vertices
+            .centre(shape);
+
+        const centerX = center.x;
+        const centerY = center.y;
+
+        const relativeVertices =
+            shape.map(p => ({
+                x: p.x - centerX,
+                y: p.y - centerY
+            }));
+
+        const body =
+            scene.matter.add.fromVertices(
+                centerX,
+                centerY,
+                relativeVertices,
+                physicsOptions
+            );
+
+        if(body){
+
+            const bounds =
+                body.bounds;
+
+            const bodyCenterX =
+                (bounds.min.x +
+                bounds.max.x)/2;
+
+            const bodyCenterY =
+                (bounds.min.y +
+                bounds.max.y)/2;
+
+            const shapeCenterX =
+                shape.reduce(
+                    (sum,p)=>sum+p.x,
+                    0
+                ) / shape.length;
+
+            const shapeCenterY =
+                shape.reduce(
+                    (sum,p)=>sum+p.y,
+                    0
+                ) / shape.length;
+
+            Phaser.Physics.Matter
+            .Matter.Body
+            .setPosition(
+                body,
+                {
+                    x:
+                    body.position.x +
+                    (shapeCenterX-bodyCenterX),
+
+                    y:
+                    body.position.y +
+                    (shapeCenterY-bodyCenterY)
+                }
+            );
+
+            if(label){
+
+                body.label = label;
+
+                if(body.parts){
+
+                    body.parts.forEach(part=>{
+
+                        part.label =
+                            label;
+
+                    });
+
+                }
+
+            }
+
+        }
+
+    });
+
+}
 
 function create() {
 
@@ -496,180 +617,31 @@ this.matter.world.on(
 
         /*************************Drawing platforms visualize************************************ */
 
- const graphics =
-        this.add.graphics();
 
-    graphics.fillStyle(
-        0x000000
-    );
+// Platforms
 
-    outlines.forEach(shape => {
-
-        if (shape.length < 10) return;
-
-        graphics.beginPath();
-
-        graphics.moveTo(
-            shape[0].x,
-            shape[0].y
-        );
-
-        shape.forEach(point => {
-
-            graphics.lineTo(
-                point.x,
-                point.y
-            );
-
-        });
-
-        graphics.closePath();
-
-        graphics.fillPath();
-
-    });
-
-/*************************CREATE COLLISION************************************ */
-
-    outlines.forEach(shape => {
-
-        if (shape.length < 10) return;
-
-        const center =
-            Phaser.Physics
-            .Matter
-            .Matter
-            .Vertices
-            .centre(shape);
-
-        const centerX =
-            center.x;
-
-        const centerY =
-            center.y;
-
-        const relativeVertices =
-            shape.map(p => ({
-                x: p.x - centerX,
-                y: p.y - centerY
-            }));
-
-        const body =
-            this.matter.add.fromVertices(
-                centerX,
-                centerY,
-                relativeVertices,
-                {
-                    isStatic:true
-                }
-            );
-
-        if (body) {
-
-            const bounds =
-                body.bounds;
-
-            const bodyCenterX =
-                (bounds.min.x +
-                bounds.max.x)/2;
-
-            const bodyCenterY =
-                (bounds.min.y +
-                bounds.max.y)/2;
-
-            const shapeCenterX =
-                shape.reduce(
-                    (sum,p)=>sum+p.x,
-                    0
-                ) / shape.length;
-
-            const shapeCenterY =
-                shape.reduce(
-                    (sum,p)=>sum+p.y,
-                    0
-                ) / shape.length;
-
-            Phaser.Physics
-            .Matter
-            .Matter
-            .Body
-            .setPosition(
-                body,
-                {
-                    x:
-                    body.position.x +
-                    (shapeCenterX - bodyCenterX),
-
-                    y:
-                    body.position.y +
-                    (shapeCenterY - bodyCenterY)
-                }
-            );
-
-        }
-
-    });
-    goalOutlines.forEach(shape=>{
-
-    if(shape.length<10) return;
-
-    const graphics =
-        this.add.graphics();
-
-    graphics.fillStyle(
-        0xff0000
-    );
-
-    graphics.beginPath();
-
-    graphics.moveTo(
-        shape[0].x,
-        shape[0].y
-    );
-
-    shape.forEach(point=>{
-
-        graphics.lineTo(
-            point.x,
-            point.y
-        );
-
-    });
-
-    graphics.closePath();
-
-    graphics.fillPath();
+createObjects(
+    this,
+    outlines,
+    0x654321,
+    {
+        isStatic:true
+    }
+);
 
 
-    const center =
-        Phaser.Physics.Matter.Matter
-        .Vertices.centre(shape);
+// Goal
 
-    const goal =
-        this.matter.add.fromVertices(
-            center.x,
-            center.y,
-            shape.map(p=>({
-                x:p.x-center.x,
-                y:p.y-center.y
-            })),
-            {
-                isStatic:true,
-                isSensor:true
-            }
-        );
-
-    goal.label = "goal";
-
-if (goal.parts) {
-
-    goal.parts.forEach(part => {
-        part.label = "goal";
-    });
-
-}
-
-});
+createObjects(
+    this,
+    goalOutlines,
+    0xff0000,
+    {
+        isStatic:true,
+        isSensor:true
+    },
+    "goal"
+);
 
         /*************************Drawing platforms visualize************************************ */
 
