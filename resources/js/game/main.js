@@ -8,7 +8,7 @@ const config = {
 
     parent: "game-container",
 
-    backgroundColor: "#9999F8",
+    backgroundColor: "#AFAFAF",
 
     physics: {
         default: "matter",
@@ -33,11 +33,13 @@ let player;
 let cursors;
 let canJump = false;
 
-
+/****Platform****/
 let levelData = [];
 let platformObjects = [];
 let outlines = [];
 
+/****Platform****/
+let goalOutlines = [];
 
 
 let isDrawing = false;
@@ -57,77 +59,134 @@ function preload() {
     "levelImage",
     window.levelImage
 );
-console.log(window.levelImage);
 }
-function createPlatform(scene, platformData) {
-// neemt JSON bestand op met x,y, width, height en maakt een platform aan in de scene
-    const rect = scene.add.rectangle(
-        platformData.x,
-        platformData.y,
-        platformData.width,
-        platformData.height,
-        0x654321
+
+function isBlack(x, y, pixels, width) {
+
+    const index = (y * width + x) * 4;
+
+    const r = pixels[index];
+    const g = pixels[index + 1];
+    const b = pixels[index + 2];
+    const a = pixels[index + 3];
+
+    return (
+        r < 30 &&
+        g < 30 &&
+        b < 30 &&
+        a > 200
     );
-    scene.matter.add.gameObject(rect, {
-        isStatic: true
-    });
-    platformObjects.push(rect);
 }
 
-function loadLevel(scene, levelData) {
-    levelData.forEach(platformData => {
-        createPlatform(scene,platformData);
-    });
-}
 
+function isRed(x, y, pixels, width) {
+
+    const index = (y * width + x) * 4;
+
+    const r = pixels[index];
+    const g = pixels[index + 1];
+    const b = pixels[index + 2];
+    const a = pixels[index + 3];
+
+    return (
+        r > 200 &&
+        g < 30 &&
+        b < 30 &&
+        a > 200
+    );
+}
 //herkennen van verbonden zwarte pixels in de afbeelding en groepeert ze als vormen.
-function getConnectedShapes(pixels, width, height) {
+function getConnectedShapes(
+    pixels,
+    width,
+    height,
+    colorCheck
+) {
+
     const visited = new Set();
     const shapes = [];
 
-    function isBlack(x, y) {
-        const index = (y * width + x) * 4;
-        const r = pixels[index];
-        const g = pixels[index + 1];
-        const b = pixels[index + 2];
-        const a = pixels[index + 3];
-
-        return (r < 30 && g < 30 && b < 30 && a > 200);
-    }
-
     function floodFill(startX, startY) {
-        const stack = [[startX, startY]];
+
+        const stack = [[startX,startY]];
         const shape = [];
 
         while (stack.length > 0) {
-            const [x, y] = stack.pop();
+
+            const [x,y] = stack.pop();
+
             const key = `${x},${y}`;
-            if (visited.has(key)) continue;
+
+            if (visited.has(key))
+                continue;
+
             visited.add(key);
-            if (!isBlack(x, y)) continue;
-            shape.push({ x, y });
-            stack.push([x + 1, y]);
-            stack.push([x - 1, y]);
-            stack.push([x, y + 1]);
-            stack.push([x, y - 1]);
+
+            if (
+                !colorCheck(
+                    x,
+                    y,
+                    pixels,
+                    width
+                )
+            ) continue;
+
+            shape.push({x,y});
+
+            stack.push([x+1,y]);
+            stack.push([x-1,y]);
+            stack.push([x,y+1]);
+            stack.push([x,y-1]);
+
         }
 
         return shape;
     }
 
     for (let y = 0; y < height; y++) {
+
         for (let x = 0; x < width; x++) {
-            const key = `${x},${y}`;
-            if (visited.has(key)) continue;
-            if (isBlack(x, y)) {
-                const shape = floodFill(x, y);
-                if (shape.length > 0) {
-                    shapes.push(shape);
+
+            const key =
+                `${x},${y}`;
+
+            if (
+                visited.has(key)
+            ) continue;
+
+            if (
+                colorCheck(
+                    x,
+                    y,
+                    pixels,
+                    width
+                )
+            ) {
+
+                const shape =
+                    floodFill(
+                        x,
+                        y
+                    );
+
+                if (
+                    shape.length > 0
+                ) {
+
+                    shapes.push(
+                        shape
+                    );
+
                 }
+
             }
+
         }
+
     }
+
     return shapes;
+
 }
 
 function getOutline(shape) {
@@ -227,10 +286,6 @@ function imageToLevelData(scene) {
 
     const texture = scene.textures.get("levelImage");
     const source = texture.getSourceImage(); // Get image
-    console.log(texture);
-console.log(source);
-console.log(source.width);
-console.log(source.height);
     const canvas = document.createElement("canvas");
     canvas.width = source.width;
     canvas.height = source.height;
@@ -308,10 +363,18 @@ console.log(source.height);
 
     console.log("Platforms created:", levelData.length);
     ****************************************/
-   const shapes = getConnectedShapes(
+    const shapes = getConnectedShapes(
     pixels,
     source.width,
-    source.height
+    source.height,
+    isBlack
+    );
+
+    const goalShapes = getConnectedShapes(
+    pixels,
+    source.width,
+    source.height,
+    isRed
     );
 
     outlines = shapes.map(shape => {
@@ -328,8 +391,20 @@ console.log(source.height);
     );
 
 });
+goalOutlines = goalShapes.map(shape => {
 
-console.log(outlines);
+    const outline =
+        getOutline(shape);
+
+    const traced =
+        traceOutline(outline);
+
+    return simplifyOutline(
+        traced,
+        8
+    );
+
+});
     
 }
 
@@ -344,70 +419,23 @@ console.log(outlines);
 
 
 
+function createObjects(
+    scene,
+    shapes,
+    color,
+    physicsOptions = {},
+    label = null
+) {
+console.log("Creating:", shapes);
+    const graphics = scene.add.graphics();
 
+    graphics.fillStyle(color);
 
-function create() {
-
-/*************************PLAYER************************************ */
-    player = this.matter.add.sprite(700,200,"character");
-    player.setScale(0.3);
-    player.setBody({
-        type: "rectangle",
-        width: 80,
-        height: player.height * 0.25
-    });
-    player.setOrigin(0.50, 0.59);
-    player.setFixedRotation();
-/*************************PLAYER************************************ */
-
-    this.matter.world.setBounds(0,0,1500,800);
-    cursors = this.input.keyboard.createCursorKeys();
-    this.input.mouse.disableContextMenu();
-
-
-/*************************Building Platforms************************************ */
-
-    imageToLevelData(this);
-    loadLevel(this, levelData);
-    /*************************Building platforms************************************ */
-
-
-    /*************************Jumping colission************************************ */
-    this.matter.world.on("collisionstart", (event) => {
-
-    event.pairs.forEach((pair) => {
-
-        const bodyA = pair.bodyA;
-        const bodyB = pair.bodyB;
-
-
-        if (
-            bodyA.gameObject === player ||
-            bodyB.gameObject === player
-        ) {
-            canJump = true;
-        }
-    });
-});
-    /*************************Jumping Collision************************************ */
-
-
-
-
-
-
-        /*************************Drawing platforms visualize************************************ */
-
- const graphics =
-        this.add.graphics();
-
-    graphics.fillStyle(
-        0x654321
-    );
-
-    outlines.forEach(shape => {
+    shapes.forEach(shape => {
 
         if (shape.length < 10) return;
+
+        // Draw object
 
         graphics.beginPath();
 
@@ -426,29 +454,18 @@ function create() {
         });
 
         graphics.closePath();
-
         graphics.fillPath();
 
-    });
 
-/*************************CREATE COLLISION************************************ */
-
-    outlines.forEach(shape => {
-
-        if (shape.length < 10) return;
+        // Physics
 
         const center =
-            Phaser.Physics
-            .Matter
-            .Matter
-            .Vertices
+            Phaser.Physics.Matter
+            .Matter.Vertices
             .centre(shape);
 
-        const centerX =
-            center.x;
-
-        const centerY =
-            center.y;
+        const centerX = center.x;
+        const centerY = center.y;
 
         const relativeVertices =
             shape.map(p => ({
@@ -457,16 +474,14 @@ function create() {
             }));
 
         const body =
-            this.matter.add.fromVertices(
+            scene.matter.add.fromVertices(
                 centerX,
                 centerY,
                 relativeVertices,
-                {
-                    isStatic:true
-                }
+                physicsOptions
             );
 
-        if (body) {
+        if(body){
 
             const bounds =
                 body.bounds;
@@ -491,26 +506,142 @@ function create() {
                     0
                 ) / shape.length;
 
-            Phaser.Physics
-            .Matter
-            .Matter
-            .Body
+            Phaser.Physics.Matter
+            .Matter.Body
             .setPosition(
                 body,
                 {
                     x:
                     body.position.x +
-                    (shapeCenterX - bodyCenterX),
+                    (shapeCenterX-bodyCenterX),
 
                     y:
                     body.position.y +
-                    (shapeCenterY - bodyCenterY)
+                    (shapeCenterY-bodyCenterY)
                 }
             );
+
+            if(label){
+
+                body.label = label;
+
+                if(body.parts){
+
+                    body.parts.forEach(part=>{
+
+                        part.label =
+                            label;
+
+                    });
+
+                }
+
+            }
 
         }
 
     });
+
+}
+
+function create() {
+
+/*************************PLAYER************************************ */
+    player = this.matter.add.sprite(700,200,"character");
+    player.setScale(0.3);
+    player.setBody({
+        type: "rectangle",
+        width: 80,
+        height: player.height * 0.25
+    });
+    player.setOrigin(0.50, 0.59);
+    player.setFixedRotation();
+/*************************PLAYER************************************ */
+
+    this.matter.world.setBounds(0,0,1500,800);
+    cursors = this.input.keyboard.createCursorKeys();
+    this.input.mouse.disableContextMenu();
+
+
+/*************************Building Platforms************************************ */
+
+    imageToLevelData(this);
+
+    /*************************Building platforms************************************ */
+
+
+    /*************************Jumping colission************************************ */
+this.matter.world.on(
+    "collisionstart",
+    (event)=>{
+
+        event.pairs.forEach(pair=>{
+
+            const bodyA = pair.bodyA;
+            const bodyB = pair.bodyB;
+
+            // Jump logic
+            if(
+                bodyA.gameObject===player ||
+                bodyB.gameObject===player
+            ){
+                canJump = true;
+            }
+
+            // Win logic
+            const playerCollision =
+                bodyA.gameObject===player ||
+                bodyB.gameObject===player;
+
+            const goalCollision =
+                bodyA.label==="goal" ||
+                bodyB.label==="goal";
+
+            if(
+                playerCollision &&
+                goalCollision
+            ){
+                alert("You won");
+            }
+
+        });
+
+    }
+);
+    /*************************Jumping Collision************************************ */
+
+
+
+
+
+
+        /*************************Drawing platforms visualize************************************ */
+
+
+// Platforms
+
+createObjects(
+    this,
+    outlines,
+    0x654321,
+    {
+        isStatic:true
+    }
+);
+
+
+// Goal
+
+createObjects(
+    this,
+    goalOutlines,
+    0xff0000,
+    {
+        isStatic:true,
+        isSensor:true
+    },
+    "goal"
+);
 
         /*************************Drawing platforms visualize************************************ */
 
