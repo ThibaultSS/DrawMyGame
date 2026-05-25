@@ -60,41 +60,58 @@ function preload() {
     window.levelImage
 );
 }
+/**************************COLOR********************** */
+function colorDistance(
+    r1,g1,b1,
+    r2,g2,b2
+){
 
-function isBlack(x, y, pixels, width) {
+    return Math.sqrt(
 
-    const index = (y * width + x) * 4;
+        (r1-r2)**2 +
+        (g1-g2)**2 +
+        (b1-b2)**2
+
+    );
+
+}
+function isRed(x,y,pixels,width){
+
+    const index =
+        (y*width+x)*4;
 
     const r = pixels[index];
-    const g = pixels[index + 1];
-    const b = pixels[index + 2];
-    const a = pixels[index + 3];
+    const g = pixels[index+1];
+    const b = pixels[index+2];
 
     return (
-        r < 30 &&
-        g < 30 &&
-        b < 30 &&
-        a > 200
+        r > 100 &&
+        r > g*1.5 &&
+        r > b*1.5
     );
 }
 
 
-function isRed(x, y, pixels, width) {
+function isBlack(x,y,pixels,width){
 
-    const index = (y * width + x) * 4;
+    const index =
+        (y*width+x)*4;
 
     const r = pixels[index];
-    const g = pixels[index + 1];
-    const b = pixels[index + 2];
-    const a = pixels[index + 3];
+    const g = pixels[index+1];
+    const b = pixels[index+2];
 
-    return (
-        r > 200 &&
-        g < 30 &&
-        b < 30 &&
-        a > 200
-    );
+    const brightness =
+        (r+g+b)/3;
+
+    return brightness < 100;
 }
+/******************************COLOR********************** */
+
+
+
+
+
 //herkennen van verbonden zwarte pixels in de afbeelding en groepeert ze als vormen.
 function getConnectedShapes(
     pixels,
@@ -169,15 +186,13 @@ function getConnectedShapes(
                         y
                     );
 
-                if (
-                    shape.length > 0
-                ) {
+                const MIN_SIZE = 300;
 
-                    shapes.push(
-                        shape
-                    );
-
-                }
+if (
+    shape.length > MIN_SIZE
+) {
+    shapes.push(shape);
+}
 
             }
 
@@ -286,6 +301,8 @@ function imageToLevelData(scene) {
 
     const texture = scene.textures.get("levelImage");
     const source = texture.getSourceImage(); // Get image
+    const scaleX = 1500 / source.width;
+    const scaleY = 800 / source.height;
     const canvas = document.createElement("canvas");
     canvas.width = source.width;
     canvas.height = source.height;
@@ -386,9 +403,12 @@ function imageToLevelData(scene) {
         traceOutline(outline);
 
     return simplifyOutline(
-        traced,
-        8
-    );
+    traced,
+    8
+).map(point => ({
+    x: point.x * scaleX,
+    y: point.y * scaleY
+}));
 
 });
 goalOutlines = goalShapes.map(shape => {
@@ -400,9 +420,12 @@ goalOutlines = goalShapes.map(shape => {
         traceOutline(outline);
 
     return simplifyOutline(
-        traced,
-        8
-    );
+    traced,
+    8
+).map(point => ({
+    x: point.x * scaleX,
+    y: point.y * scaleY
+}));
 
 });
     
@@ -433,7 +456,12 @@ console.log("Creating:", shapes);
 
     shapes.forEach(shape => {
 
-        if (shape.length < 10) return;
+        if (
+    !shape ||
+    shape.length < 10
+){
+    return;
+}
 
         // Draw object
 
@@ -472,14 +500,30 @@ console.log("Creating:", shapes);
                 x: p.x - centerX,
                 y: p.y - centerY
             }));
+            if(relativeVertices.length < 3){
+    return;
+}
+        let body = null;
 
-        const body =
-            scene.matter.add.fromVertices(
-                centerX,
-                centerY,
-                relativeVertices,
-                physicsOptions
-            );
+try{
+
+    body =
+        scene.matter.add.fromVertices(
+            centerX,
+            centerY,
+            relativeVertices,
+            physicsOptions
+        );
+
+}catch(error){
+
+    console.log(
+        "Invalid shape skipped:",
+        shape
+    );
+
+    return;
+}
 
         if(body){
 
