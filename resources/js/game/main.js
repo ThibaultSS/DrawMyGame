@@ -39,7 +39,8 @@ let outlines = [];
 
 /****Platform****/
 let goalOutlines = [];
-
+let playerOutline = null;
+let playerGraphics;
 
 let isDrawing = false;
 
@@ -73,6 +74,14 @@ function isBlack(x,y,pixels,width){
     const b = pixels[index+2];
     const brightness = (r+g+b)/3;
     return brightness < 100;
+}
+
+function isGreen(x, y, pixels, width) {
+    const index = (y * width + x) * 4;
+    const r = pixels[index];
+    const g = pixels[index + 1];
+    const b = pixels[index + 2];
+    return (g > 100 && g > r * 1.5 && g > b * 1.5);
 }
 /******************************COLOR********************** */
 
@@ -260,8 +269,9 @@ function imageToLevelData(scene) {
 
     console.log("Platforms created:", levelData.length);
     ****************************************/
-    const shapes = getConnectedShapes(pixels,source.width,source.height,isBlack);
-    const goalShapes = getConnectedShapes(pixels,source.width,source.height,isRed);
+    const shapes = getConnectedShapes(pixels, source.width, source.height, isBlack);
+    const goalShapes = getConnectedShapes(pixels, source.width, source.height, isRed);
+    const playerShapes = getConnectedShapes(pixels, source.width, source.height, isGreen);
 
     outlines = shapes.map(shape => {
         const outline =getOutline(shape);
@@ -280,6 +290,19 @@ function imageToLevelData(scene) {
         }));
 
     });
+    if(playerShapes.length > 0){
+
+        const biggestShape = playerShapes.sort((a,b) => b.length - a.length)[0];
+        const outline = getOutline(biggestShape);
+        const traced = traceOutline(outline);
+
+        playerOutline =
+            simplifyOutline(traced, 8)
+            .map(point => ({
+                x: point.x * scaleX,
+                y: point.y * scaleY
+            }));
+    }
     
 }
 
@@ -367,17 +390,87 @@ function createObjects(scene,shapes,color,physicsOptions = {}, label = null) {
     });
 }
 
+function createPlayer(scene) {
+
+    if(!playerOutline){
+        return;
+    }
+
+    playerGraphics =
+    scene.add.graphics();
+
+    playerGraphics.fillStyle(0x00ff00);
+
+    playerGraphics.beginPath();
+
+    playerGraphics.moveTo(
+        playerOutline[0].x,
+        playerOutline[0].y
+    );
+
+    playerOutline.forEach(point => {
+
+        playerGraphics.lineTo(
+            point.x,
+            point.y
+        );
+
+    });
+
+    playerGraphics.closePath();
+    playerGraphics.fillPath();
+    playerGraphics.setDepth(1000);
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    playerOutline.forEach(p => {
+
+        minX = Math.min(minX,p.x);
+        minY = Math.min(minY,p.y);
+
+        maxX = Math.max(maxX,p.x);
+        maxY = Math.max(maxY,p.y);
+
+    });
+
+    const width =
+        maxX - minX;
+
+    const height =
+        maxY - minY;
+
+    const centerX =
+        minX + width / 2;
+
+    const centerY =
+        minY + height / 2;
+
+    player = scene.matter.add.rectangle(
+    centerX,
+    centerY,
+    width,
+    height,
+    {
+        isStatic: false
+    }
+);
+
+
+    //****************************************TILIT******************* */
+    Phaser.Physics.Matter.Matter.Body.setInertia(
+        player,
+        Infinity
+    );
+        //****************************************TILIT******************* */
+
+}
+
 function create() {
 /*************************PLAYER************************************ */
-    player = this.matter.add.sprite(700,200,"character");
-    player.setScale(0.3);
-    player.setBody({
-        type: "rectangle",
-        width: 80,
-        height: player.height * 0.25
-    });
-    player.setOrigin(0.50, 0.59);
-    player.setFixedRotation();
+    
 /*************************PLAYER************************************ */
 
     this.matter.world.setBounds(0,0,1500,800);
@@ -391,7 +484,7 @@ function create() {
 
     /*************************Building platforms************************************ */
 
-
+    createPlayer(this);
     /*************************Jumping colission************************************ */
 this.matter.world.on(
     "collisionstart",
@@ -400,18 +493,26 @@ this.matter.world.on(
             const bodyA = pair.bodyA;
             const bodyB = pair.bodyB;
             // Jump logic
-            if(bodyA.gameObject===player || bodyB.gameObject===player){
+            if(
+                bodyA === player ||
+                bodyB === player
+            ){
                 canJump = true;
             }
             // Win logic
-            const playerCollision = bodyA.gameObject===player || bodyB.gameObject===player;
-            const goalCollision = bodyA.label==="goal" || bodyB.label==="goal";
+            const goalCollision =
+                bodyA.label === "goal" ||
+                bodyB.label === "goal";
+            const playerCollision =
+                bodyA === player ||
+                bodyB === player;
 
             if(playerCollision && goalCollision){
                 alert("You won");
             }
         });
     }
+    
 );
     /*************************Jumping Collision************************************ */
 
@@ -444,22 +545,101 @@ createObjects(this, goalOutlines, 0xff0000, {isStatic:true, isSensor:true}, "goa
 
 
 
+
 function update() {
     const speed = 5;
     if (cursors.left.isDown) {
-        player.setVelocityX(-speed);
+        Phaser.Physics.Matter.Matter.Body.setVelocity(
+            player,
+            {
+                x: -speed,
+                y: player.velocity.y
+            }
+        );
     }
     else if (cursors.right.isDown) {
-        player.setVelocityX(speed);
+        Phaser.Physics.Matter.Matter.Body.setVelocity(
+            player,
+            {
+                x: speed,
+                y: player.velocity.y
+            }
+        );
     }
     else {
-        player.setVelocityX(0);
+
+        Phaser.Physics.Matter.Matter.Body.setVelocity(
+            player,
+            {
+                x: 0,
+                y: player.velocity.y
+            }
+        );
     }
 
     if (cursors.up.isDown && canJump) {
-        player.setVelocityY(-10);
+        Phaser.Physics.Matter.Matter.Body.setVelocity(
+            player,
+            {
+                x: player.velocity.x,
+                y: -10
+            }
+        );
         canJump = false;
     }
+    if(player && playerGraphics){
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+
+    playerOutline.forEach(p => {
+
+        minX = Math.min(minX,p.x);
+        minY = Math.min(minY,p.y);
+
+        maxX = Math.max(maxX,p.x);
+        maxY = Math.max(maxY,p.y);
+
+    });
+
+    const originalCenterX =
+        minX + (maxX - minX) / 2;
+
+    const originalCenterY =
+        minY + (maxY - minY) / 2;
+
+    const offsetX =
+        player.position.x - originalCenterX;
+
+    const offsetY =
+        player.position.y - originalCenterY;
+
+    playerGraphics.clear();
+
+    playerGraphics.fillStyle(0x00ff00);
+
+    playerGraphics.beginPath();
+
+    playerGraphics.moveTo(
+        playerOutline[0].x + offsetX,
+        playerOutline[0].y + offsetY
+    );
+
+    playerOutline.forEach(point => {
+
+        playerGraphics.lineTo(
+            point.x + offsetX,
+            point.y + offsetY
+        );
+
+    });
+
+    playerGraphics.closePath();
+    playerGraphics.fillPath();
+
+}
 }
 
 new Phaser.Game(config);
