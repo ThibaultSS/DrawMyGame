@@ -71,7 +71,7 @@ function matchesColor(
     pixels,
     width,
     targetColor,
-    tolerance = 66
+    tolerance = 50
 ) {
 
     const index =
