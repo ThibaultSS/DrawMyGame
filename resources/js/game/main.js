@@ -17,7 +17,7 @@ const config = {
                 y: 1
             },
 
-            debug: false
+            debug: true
         }
     },
 
@@ -54,34 +54,42 @@ function preload() {
     this.load.image("levelImage",window.levelImage);
 }
 /**************************COLOR********************** */
-function colorDistance(r1, g1, b1, r2, g2, b2){
-    return Math.sqrt((r1-r2)**2 + (g1-g2)**2 + (b1-b2)**2);
+function hexToRgb(hex) {
+
+    hex = hex.replace("#", "");
+
+    return {
+        r: parseInt(hex.substring(0,2),16),
+        g: parseInt(hex.substring(2,4),16),
+        b: parseInt(hex.substring(4,6),16)
+    };
+
 }
+function matchesColor(
+    x,
+    y,
+    pixels,
+    width,
+    targetColor,
+    tolerance = 66
+) {
 
-function isRed(x,y,pixels,width){
-    const index = (y*width+x)*4;
-    const r = pixels[index];
-    const g = pixels[index+1];
-    const b = pixels[index+2];
-    return ( r > 100 && r > g*1.5 && r > b*1.5);
-}
+    const index =
+        (y * width + x) * 4;
 
-
-function isBlack(x,y,pixels,width){
-    const index =(y*width+x)*4;
-    const r = pixels[index];
-    const g = pixels[index+1];
-    const b = pixels[index+2];
-    const brightness = (r+g+b)/3;
-    return brightness < 100;
-}
-
-function isGreen(x, y, pixels, width) {
-    const index = (y * width + x) * 4;
     const r = pixels[index];
     const g = pixels[index + 1];
     const b = pixels[index + 2];
-    return (g > 100 && g > r * 1.5 && g > b * 1.5);
+
+    const distance =
+        Math.sqrt(
+            (r - targetColor.r) ** 2 +
+            (g - targetColor.g) ** 2 +
+            (b - targetColor.b) ** 2
+        );
+
+    return distance < tolerance;
+
 }
 /******************************COLOR********************** */
 
@@ -202,6 +210,28 @@ function imageToLevelData(scene) {
     const imageData = ctx.getImageData(0, 0, source.width, source.height); // Pixel data ophalen
     const pixels = imageData.data; // RGBA data in array
 
+
+
+
+
+
+
+
+
+    const platformColor =
+    hexToRgb(
+        window.platformColor
+    );
+
+const goalColor =
+    hexToRgb(
+        window.goalColor
+    );
+
+const playerColor =
+    hexToRgb(
+        window.playerColor
+    );
     /*
     for (let y = 0; y < source.height; y++) { 
         let runStart = null; 
@@ -269,9 +299,51 @@ function imageToLevelData(scene) {
 
     console.log("Platforms created:", levelData.length);
     ****************************************/
-    const shapes = getConnectedShapes(pixels, source.width, source.height, isBlack);
-    const goalShapes = getConnectedShapes(pixels, source.width, source.height, isRed);
-    const playerShapes = getConnectedShapes(pixels, source.width, source.height, isGreen);
+   
+    const shapes =
+    getConnectedShapes(
+        pixels,
+        source.width,
+        source.height,
+        (x,y,p,w)=>
+            matchesColor(
+                x,
+                y,
+                p,
+                w,
+                platformColor
+            )
+    );
+
+const goalShapes =
+    getConnectedShapes(
+        pixels,
+        source.width,
+        source.height,
+        (x,y,p,w)=>
+            matchesColor(
+                x,
+                y,
+                p,
+                w,
+                goalColor
+            )
+    );
+
+const playerShapes =
+    getConnectedShapes(
+        pixels,
+        source.width,
+        source.height,
+        (x,y,p,w)=>
+            matchesColor(
+                x,
+                y,
+                p,
+                w,
+                playerColor
+            )
+    );
 
     outlines = shapes.map(shape => {
         const outline =getOutline(shape);
@@ -399,7 +471,11 @@ function createPlayer(scene) {
     playerGraphics =
     scene.add.graphics();
 
-    playerGraphics.fillStyle(0x00ff00);
+    playerGraphics.fillStyle(
+    parseInt(
+        window.playerColor.replace("#","0x")
+    )
+);
 
     playerGraphics.beginPath();
 
@@ -618,7 +694,11 @@ function update() {
 
     playerGraphics.clear();
 
-    playerGraphics.fillStyle(0x00ff00);
+        playerGraphics.fillStyle(
+    parseInt(
+        window.playerColor.replace("#","0x")
+    )
+);
 
     playerGraphics.beginPath();
 
