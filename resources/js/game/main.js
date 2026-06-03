@@ -32,6 +32,9 @@ let player;
 let cursors;
 let canJump = false;
 
+let moveSpeed = 5;
+let jumpStrength = 10;
+
 /****Platform****/
 let levelData = [];
 let platformObjects = [];
@@ -344,9 +347,7 @@ const playerShapes =
                 playerColor
             )
     );
-    console.log("Platforms:", shapes.length);
-console.log("Goals:", goalShapes.length);
-console.log("Players:", playerShapes.length);
+
     outlines = shapes.map(shape => {
         const outline =getOutline(shape);
         const traced =traceOutline(outline);
@@ -602,11 +603,32 @@ this.matter.world.on(
         /*************************Drawing platforms visualize************************************ */
 
 // Platforms
-createObjects(this, outlines, 0x654321, {isStatic:true});
+createObjects(this, outlines, window.platformColor.replace("#", "0x"), {isStatic:true});
 
 // Goal
-createObjects(this, goalOutlines, 0xff0000, {isStatic:true, isSensor:true}, "goal");
+createObjects(this, goalOutlines,window.goalColor.replace("#", "0x"), {isStatic:true, isSensor:true}, "goal");
+
         /*************************Drawing platforms visualize************************************ */
+
+
+
+        document
+    .getElementById("speedSlider")
+    .addEventListener("input", (e) => {
+
+        moveSpeed =
+            parseInt(e.target.value);
+
+    });
+
+document
+    .getElementById("jumpSlider")
+    .addEventListener("input", (e) => {
+
+        jumpStrength =
+            parseInt(e.target.value);
+
+    });
 }
 
 
@@ -625,7 +647,7 @@ createObjects(this, goalOutlines, 0xff0000, {isStatic:true, isSensor:true}, "goa
 
 
 function update() {
-    const speed = 5;
+    const speed = moveSpeed;
     if (cursors.left.isDown) {
         Phaser.Physics.Matter.Matter.Body.setVelocity(
             player,
@@ -660,7 +682,7 @@ function update() {
             player,
             {
                 x: player.velocity.x,
-                y: -10
+                y: -jumpStrength
             }
         );
         canJump = false;

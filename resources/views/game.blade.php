@@ -17,11 +17,34 @@ window.goalColor =
 
 window.playerColor =
     "{{ session('playerColor') }}";
-console.log("Platform:", window.platformColor);
-console.log("Goal:", window.goalColor);
-console.log("Player:", window.playerColor);
+
 </script>
 <body>
+<div id="controls">
+
+    <label>
+        Speed
+        <input
+            type="range"
+            id="speedSlider"
+            min="1"
+            max="20"
+            value="5"
+        >
+    </label>
+
+    <label>
+        Jump Height
+        <input
+            type="range"
+            id="jumpSlider"
+            min="5"
+            max="30"
+            value="10"
+        >
+    </label>
+
+</div>
 
 <div id="game-container"></div>
 
