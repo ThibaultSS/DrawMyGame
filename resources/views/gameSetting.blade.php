@@ -94,7 +94,7 @@
 >
 
 <form
-    action="/game"
+    action="/start-game"
     method="POST"
 >
     @csrf

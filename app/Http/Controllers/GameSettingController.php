@@ -11,8 +11,7 @@ class GameSettingController extends Controller
         session([
             'platformColor' => $request->platformColor,
             'goalColor' => $request->goalColor,
-            'playerColor' => $request->playerColor,
-            'uploadedLevel' => $request->imagePath
+            'playerColor' => $request->playerColor
         ]);
 
         return redirect('/game');

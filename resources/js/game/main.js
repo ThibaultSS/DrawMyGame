@@ -344,7 +344,9 @@ const playerShapes =
                 playerColor
             )
     );
-
+    console.log("Platforms:", shapes.length);
+console.log("Goals:", goalShapes.length);
+console.log("Players:", playerShapes.length);
     outlines = shapes.map(shape => {
         const outline =getOutline(shape);
         const traced =traceOutline(outline);

@@ -14,6 +14,4 @@ Route::get('/upload', function () {
 Route::post('/upload-level', [UploadLevelController::class, 'uploadLevel']);
 Route::post('/start-game', [GameSettingController::class, 'startGame']);
 
-Route::post('/game', function(){
-    return view('game');
-});
+Route::get('/game', function(){return view('game');});
