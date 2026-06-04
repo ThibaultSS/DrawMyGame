@@ -17,6 +17,8 @@ window.goalColor =
 
 window.playerColor =
     "{{ session('playerColor') }}";
+window.hazardColor =
+    "{{ session('hazardColor') }}";
 
 </script>
 <body>

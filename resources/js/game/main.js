@@ -44,6 +44,7 @@ let outlines = [];
 let goalOutlines = [];
 let playerOutline = null;
 let playerGraphics;
+let hazardOutlines = [];
 
 let isDrawing = false;
 
@@ -235,6 +236,10 @@ const playerColor =
     hexToRgb(
         window.playerColor
     );
+    const hazardColor =
+    hexToRgb(
+        window.hazardColor
+    );
     /*
     for (let y = 0; y < source.height; y++) { 
         let runStart = null; 
@@ -347,6 +352,20 @@ const playerShapes =
                 playerColor
             )
     );
+    const hazardShapes =
+    getConnectedShapes(
+        pixels,
+        source.width,
+        source.height,
+        (x,y,p,w)=>
+            matchesColor(
+                x,
+                y,
+                p,
+                w,
+                hazardColor
+            )
+    );
 
     outlines = shapes.map(shape => {
         const outline =getOutline(shape);
@@ -378,6 +397,14 @@ const playerShapes =
                 y: point.y * scaleY
             }));
     }
+    hazardOutlines = hazardShapes.map(shape => {
+        const outline = getOutline(shape);
+        const traced = traceOutline(outline);
+        return simplifyOutline(traced,8).map(point => ({
+            x: point.x * scaleX,
+            y: point.y * scaleY
+        }));
+    });
     
 }
 
@@ -589,6 +616,13 @@ this.matter.world.on(
             if(playerCollision && goalCollision){
                 alert("You won");
             }
+            const hazardCollision =
+    bodyA.label === "hazard" ||
+    bodyB.label === "hazard";
+
+if(playerCollision && hazardCollision){
+    alert("You lost!");
+}
         });
     }
     
@@ -607,6 +641,9 @@ createObjects(this, outlines, window.platformColor.replace("#", "0x"), {isStatic
 
 // Goal
 createObjects(this, goalOutlines,window.goalColor.replace("#", "0x"), {isStatic:true, isSensor:true}, "goal");
+
+// Hazard
+createObjects(this, hazardOutlines,window.hazardColor.replace("#", "0x"), {isStatic:true, isSensor:true}, "hazard");
 
         /*************************Drawing platforms visualize************************************ */
 

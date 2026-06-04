@@ -84,6 +84,19 @@
         class="color-box"
     ></div>
 
+        <br><br>
+    <button
+        id="pickHazard"
+        class="selector"
+    >
+        Pick Hazard
+    </button>
+
+    <div
+        id="hazardPreview"
+        class="color-box"
+    ></div>
+
 </div>
 
 <br>
@@ -115,6 +128,11 @@
         type="hidden"
         name="playerColor"
         id="playerColor"
+    >
+    <input
+        type="hidden"
+        name= "hazardColor"
+        id="hazardColor"
     >
 
     <br><br>
@@ -172,6 +190,17 @@ document
 
         activateButton(
             document.getElementById("pickPlayer")
+        );
+
+    });
+    document
+    .getElementById("pickHazard")
+    .addEventListener("click", () => {
+
+        currentSelection = "hazard";
+
+        activateButton(
+            document.getElementById("pickHazard")
         );
 
     });
@@ -260,6 +289,16 @@ image.addEventListener("click", (event) => {
             .getElementById("playerPreview")
             .style.backgroundColor = hex;
     }
+    if(currentSelection === "hazard"){
+
+    document
+        .getElementById("hazardColor")
+        .value = hex;
+
+    document
+        .getElementById("hazardPreview")
+        .style.backgroundColor = hex;
+}
 
 });
 

@@ -1,38 +1,27 @@
-<!DOCTYPE html>
-<html>
-<head>
-    <title>Upload Level</title>
-</head>
-<body>
+@extends('layouts.app')
+@section('title', 'Upload Level')
+@section('content')
 
-<div class="container">
+<h1>Upload your level</h1>
 
-    <h1>Upload your level drawing</h1>
+<form
+    action="/upload-level"
+    method="POST"
+    enctype="multipart/form-data"
+>
+    @csrf
 
-    <form
-        action="/upload-level"
-        method="POST"
-        enctype="multipart/form-data"
+    <input
+        type="file"
+        name="levelImage"
+        accept="image/*"
+        required
     >
 
-        @csrf
+    <button class="button">
+        Continue
+    </button>
 
-        <input
-            type="file"
-            name="levelImage"
-            accept="image/*"
-            required
-        >
+</form>
 
-        <br>
-
-        <button type="submit">
-            Start Game
-        </button>
-
-    </form>
-
-</div>
-
-</body>
-</html>
+@endsection
