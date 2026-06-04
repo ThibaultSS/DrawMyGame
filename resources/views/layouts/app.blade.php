@@ -15,15 +15,17 @@
 
 <header>
     <div class="header-container">
-        <img src="{{ asset('assets/DrawMyGame_Logo_Lang.svg') }}" alt="DrawMyGame">
+        <img src="{{ asset('assets/DrawMyGame_Logo_Lang.svg') }}" alt="DrawMyGame" id="logo">
+        <div>
+            <nav>
+                <a href="/">Home</a>
+                <a href="/about">About</a>
+                <a href="/upload">Upload</a>
+            </nav>
 
-        <nav>
-            <a href="/">Home</a>
-            <a href="/about">About</a>
-            <a href="/upload">Upload</a>
-        </nav>
+            <img src="{{ asset('assets/account.svg') }}" alt="Account_logo">
+        </div>
 
-        <img src="{{ asset('assets/account.svg') }}" alt="Account_logo">
 
     </div>
 </header>

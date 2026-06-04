@@ -10,6 +10,9 @@ use App\Http\Controllers\GameSettingController;
 Route::get('/upload', function () {
     return view('upload');
 });
+Route::get('/', function () {
+    return view('home');
+});
 
 Route::post('/upload-level', [UploadLevelController::class, 'uploadLevel']);
 Route::post('/start-game', [GameSettingController::class, 'startGame']);

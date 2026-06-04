@@ -8,7 +8,7 @@ const config = {
 
     parent: "game-container",
 
-    backgroundColor: "#AFAFAF",
+    backgroundColor: "#FFFFFF",
 
     physics: {
         default: "matter",
@@ -17,7 +17,7 @@ const config = {
                 y: 1
             },
 
-            debug: true
+            debug: false
         }
     },
 
