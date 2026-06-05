@@ -2,27 +2,7 @@
 @section('title', 'Home Page')
 @section('content')
 <style>
-        .button-border {
-            position: relative;
-            padding: 10px 40px;
-            border: none;
-            cursor: pointer;
-            margin-top: 20px;
-            text-shadow: none;
-            transition: text-shadow 0.2s;
-        }
-
-        .button-border::before {
-            content: "";
-            position: absolute;
-            inset: -8px;
-            background-image: var(--border-frame, url('/assets/button/Button-1.png'));
-            background-size: 100% 100%;
-            pointer-events: none;
-        }
-        .button-border:hover {
-          text-shadow: 0 0 1px black, 0 0 0.5px black;
-        }
+        
         .photo-border {
         position: relative;
         display: inline-block; /* shrink wrap around the image */

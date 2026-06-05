@@ -12,6 +12,7 @@
 </head>
 <style>
         .button-border {
+            cursor: pointer;
             position: relative;
             padding: 10px 40px;
             border: none;
@@ -20,7 +21,11 @@
             text-shadow: none;
             transition: text-shadow 0.2s;
             font-size: 20px;
+
         }
+        .button-border * {
+    cursor: pointer;
+}
 
         .button-border::before {
             content: "";
