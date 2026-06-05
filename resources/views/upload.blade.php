@@ -2,8 +2,10 @@
 @section('title', 'Upload Level')
 @section('content')
 
-<h1>Upload your level</h1>
-
+<div class="upload-title">
+    <h1>Upload your level here</h1>
+    <img src="{{ asset('assets/Pijlen.png') }}" alt="Pijlen" id="pijlen">
+</div>
 <form
     action="/upload-level"
     method="POST"
