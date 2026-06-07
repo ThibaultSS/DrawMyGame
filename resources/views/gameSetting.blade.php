@@ -18,18 +18,27 @@
             margin: 10px;
         }
 
-        .active{
-            background-color: lightgreen;
-        }
+        .selector-group{
+    display:inline-flex;
+    align-items:center;
+    gap:10px;
+    padding:10px;
+    border-radius:8px;
+    cursor:pointer;
+    transition:0.2s;
+    margin-bottom: 20px;
+    margin-top: 8px;
+}
 
-        .color-box{
-            width: 40px;
-            height: 40px;
-            border: 1px solid black;
-            display: inline-block;
-            vertical-align: middle;
-            margin-left: 10px;
-        }
+.selector-group.active{
+    border:2px solid black;
+}
+
+.color-box{
+    width:40px;
+    height:40px;
+    border:1px solid black;
+}
         .photo-border {
     position: relative;
     display: inline-block;
@@ -50,28 +59,48 @@
 
 <p>Click a button, then click the corresponding color on the image.</p>
 
-<div>
-    <button id="pickPlatform"class="selector">
+<div id="platformGroup" class="selector-group">
+    <button id="pickPlatform" class="selector">
         Pick Platform
     </button>
-    <div id="platformPreview"class="color-box"></div>
 
+    <div
+        id="platformPreview"
+        class="color-box"
+    ></div>
+</div>
 
-    <button id="pickGoal"class="selector">
+<div id="goalGroup" class="selector-group">
+    <button id="pickGoal" class="selector">
         Pick Goal
     </button>
-    <div id="goalPreview"class="color-box"></div>
 
+    <div
+        id="goalPreview"
+        class="color-box"
+    ></div>
+</div>
 
-    <button id="pickPlayer"class="selector">
+<div id="playerGroup" class="selector-group">
+    <button id="pickPlayer" class="selector">
         Pick Player
     </button>
-    <div id="playerPreview"class="color-box"></div>
 
-    <button id="pickHazard"class="selector">
+    <div
+        id="playerPreview"
+        class="color-box"
+    ></div>
+</div>
+
+<div id="hazardGroup" class="selector-group">
+    <button id="pickHazard" class="selector">
         Pick Hazard
     </button>
-    <div id="hazardPreview"class="color-box"></div>
+
+    <div
+        id="hazardPreview"
+        class="color-box"
+    ></div>
 </div>
 <br>
 
@@ -119,61 +148,54 @@ let currentSelection = null;
 
 const buttons = document.querySelectorAll(".selector");
 
-function activateButton(button){
+const groups =
+    document.querySelectorAll(".selector-group");
 
-    buttons.forEach(b => {
-        b.classList.remove("active");
+function activateGroup(groupId){
+
+    groups.forEach(group => {
+        group.classList.remove("active");
     });
 
-    button.classList.add("active");
+    document
+        .getElementById(groupId)
+        .classList.add("active");
 }
 
 document
-    .getElementById("pickPlatform")
-    .addEventListener("click", () => {
+.getElementById("platformGroup")
+.addEventListener("click", () => {
 
-        currentSelection = "platform";
+    currentSelection = "platform";
 
-        activateButton(
-            document.getElementById("pickPlatform")
-        );
-
-    });
+    activateGroup("platformGroup");
+});
 
 document
-    .getElementById("pickGoal")
-    .addEventListener("click", () => {
+.getElementById("goalGroup")
+.addEventListener("click", () => {
 
-        currentSelection = "goal";
+    currentSelection = "goal";
 
-        activateButton(
-            document.getElementById("pickGoal")
-        );
-
-    });
+    activateGroup("goalGroup");
+});
 
 document
-    .getElementById("pickPlayer")
-    .addEventListener("click", () => {
+.getElementById("playerGroup")
+.addEventListener("click", () => {
 
-        currentSelection = "player";
+    currentSelection = "player";
 
-        activateButton(
-            document.getElementById("pickPlayer")
-        );
+    activateGroup("playerGroup");
+});
+document
+.getElementById("hazardGroup")
+.addEventListener("click", () => {
 
-    });
-    document
-    .getElementById("pickHazard")
-    .addEventListener("click", () => {
+    currentSelection = "hazard";
 
-        currentSelection = "hazard";
-
-        activateButton(
-            document.getElementById("pickHazard")
-        );
-
-    });
+    activateGroup("hazardGroup");
+});
 
 const image =
     document.getElementById("levelPreview");
