@@ -14,6 +14,10 @@ Route::get('/', function () {
     return view('home');
 });
 
+Route::get('/about', function (){
+    return view('about');
+});
+
 Route::post('/upload-level', [UploadLevelController::class, 'uploadLevel']);
 Route::post('/start-game', [GameSettingController::class, 'startGame']);
 

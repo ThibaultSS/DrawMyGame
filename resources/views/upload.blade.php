@@ -2,10 +2,10 @@
 @section('title', 'Upload Level')
 @section('content')
 
-
+<div class="uploadbody">
 <div class="upload-title">
     <h1>Upload your level here</h1>
-    <img src="{{ asset('assets/Pijlen.png') }}" alt="Pijlen" id="pijlen">
+    <img src="{{ asset('assets/Pijlen.png') }}" alt="Pijlen" class="pijlen">
 </div>
 <form action="/upload-level" method="POST" enctype="multipart/form-data" class="form-1">
     @csrf
@@ -27,6 +27,10 @@
     </div>
 
 </form>
+<div class="upload-title">
+<img src="{{ asset('assets/PijlenRev.png') }}" alt="Pijlenrev" class="pijlen">
+</div>
+</div>
 <script>
       const FRAMES_CC = [
           '/assets/button/Button-1.png',
