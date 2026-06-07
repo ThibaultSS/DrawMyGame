@@ -260,6 +260,34 @@ nav a:hover::after {
     background: transparent;
 }
 
+#popup {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 9999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+#popup-box {
+    background: white;
+    border: 2px solid black;
+    padding: 60px;
+    border-radius: 20px;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+    width: 500px;
+}
+.popupButtons{
+    display: flex;
+    gap: 50px;
+    align-items: center;
+    justify-content: center;
+}
+
 /***********FOOTER***********/
 .footer-container{
     display : flex;

@@ -13,7 +13,15 @@ window.hazardColor = "{{ session('hazardColor') }}";
 
 <div class="game-body">
 <div id="game-container"></div>
-
+<div id="popup" style="display:none;">
+    <div id="popup-box">
+        <h1 id="popup-message"></h1>
+        <div class="popupButtons">
+        <button class="button-border" onclick="window.location.href='/'">Quit</button>
+        <button class="button-border" onclick="location.reload()">Retry</button>
+        </div>
+    </div>
+</div>
 <div id="controls">
     <label>
         <input type="range" id="speedSlider" min="1" max="20"value="5">

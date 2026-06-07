@@ -573,6 +573,11 @@ function createPlayer(scene) {
 
 }
 
+function showPopup(message) {
+    document.getElementById('popup-message').textContent = message;
+    document.getElementById('popup').style.display = 'flex';
+}
+
 function create() {
 /*************************PLAYER************************************ */
     
@@ -613,14 +618,14 @@ this.matter.world.on(
                 bodyB === player;
 
             if(playerCollision && goalCollision){
-                alert("You won");
+                showPopup("You won!");
             }
             const hazardCollision =
     bodyA.label === "hazard" ||
     bodyB.label === "hazard";
 
 if(playerCollision && hazardCollision){
-    alert("You lost!");
+    showPopup("You lost!");
 }
         });
     }
