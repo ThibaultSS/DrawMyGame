@@ -51,8 +51,9 @@
                 <a href="/about">About</a>
                 <a href="/upload">Upload</a>
             </nav>
-
-            <img src="{{ asset('assets/account.svg') }}" alt="Account_logo" id="account-logo">
+            <div onclick="window.location.href='/login'">
+                <img src="{{ asset('assets/account.svg') }}" alt="Account_logo" id="account-logo">
+            </div>
         </div>
 
 
@@ -102,6 +103,7 @@
               btn.style.setProperty('--border-frame', `url('${FRAMES_C[frame]}')`);
           }, 150);
       });
+
       </script>
 
 </body>
