@@ -51,7 +51,7 @@
                 <a href="/about">About</a>
                 <a href="/upload">Upload</a>
             </nav>
-            <div onclick="window.location.href='/login'">
+            <div onclick="window.location.href='{{ Auth::check() ? '/account' : '/login' }}'" style="cursor:pointer;">
                 <img src="{{ asset('assets/account.svg') }}" alt="Account_logo" id="account-logo">
             </div>
         </div>

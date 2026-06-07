@@ -23,6 +23,9 @@ window.hazardColor = "{{ session('hazardColor') }}";
     </div>
 </div>
 <div id="controls">
+    @auth
+    <button class="button-border" id="saveBtn">Save Drawing</button>
+    @endauth
     <label>
         <input type="range" id="speedSlider" min="1" max="20"value="5">
         Speed
@@ -40,6 +43,19 @@ window.hazardColor = "{{ session('hazardColor') }}";
 <script>
 window.levelImage =
     "{{ asset('storage/' . session('uploadedLevel')) }}";
+document.getElementById('saveBtn')?.addEventListener('click', () => {
+    fetch('/save-drawing', {
+        method: 'POST',
+        headers: {
+            'X-CSRF-TOKEN': '{{ csrf_token() }}',
+            'Content-Type': 'application/json',
+        },
+    })
+    .then(res => res.json())
+    .then(data => {
+        if (data.success) alert('Drawing saved!');
+    });
+});
 </script>
 
 @endsection
