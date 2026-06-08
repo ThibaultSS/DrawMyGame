@@ -40,7 +40,7 @@ Route::get('/play/{id}', function($id) {
 });
 
 Route::get('/game', function(){return view('game');});
-
+Route::delete('/drawing/{id}', [SavedDrawingController::class, 'destroy']);
 
 Route::middleware('auth')->group(function () {
     Route::get('/account', [SavedDrawingController::class, 'index']);

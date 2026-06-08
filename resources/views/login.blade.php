@@ -4,26 +4,26 @@
 
 <div id="auth-box">
 
-    <div id="login-form">
+    <div class="form-account" id="login-form">
         <h1>Login</h1>
         <form method="POST" action="/login">
             @csrf
             <input type="email" name="email" placeholder="Email" required>
             <input type="password" name="password" placeholder="Password" required>
-            <button type="submit">Login</button>
+            <button class="button-border" type="submit">Login</button>
         </form>
         <p>No account? <span onclick="showRegister()">Register</span></p>
     </div>
 
-    <div id="register-form" style="display:none;">
-        <h2>Register</h2>
+    <div class="form-account" id="register-form" style="display:none;">
+        <h1>Register</h1>
         <form method="POST" action="/register">
             @csrf
             <input type="text" name="username" placeholder="Username" required>
             <input type="email" name="email" placeholder="Email" required>
             <input type="password" name="password" placeholder="Password" required>
             <input type="password" name="password_confirmation" placeholder="Confirm Password" required>
-            <button type="submit">Register</button>
+            <button class="button-border" type="submit">Register</button>
         </form>
         <p>Already have an account? <span onclick="showLogin()">Login</span></p>
     </div>

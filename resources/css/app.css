@@ -290,7 +290,90 @@ nav a:hover::after {
     align-items: center;
     justify-content: center;
 }
+.form-account{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-top: 100px;
+    background-image: url('../Login-Border.png');
+    background-repeat: no-repeat;
+    background-size: 100% 100%;
+    padding: 70px;
+    justify-self: center;
+    margin-bottom: 156px;;
 
+
+}
+.form-account form{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 16px;
+    margin-top: 50px;
+}
+.form-account p{
+    text-align: center;
+    margin-top: 24px;
+    cursor: pointer;
+}
+.form-account form input{
+    border: 1px solid black;
+    border-radius: 10px;
+    padding: 5px;
+}
+
+#account-container{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin-top: 100px;
+}
+.drawings-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 200px);
+    gap: 20px;
+    justify-content: center;
+    padding: 40px;
+}
+.drawing-card {
+    cursor: pointer;
+    border: 2px solid black;
+    padding: 10px;
+    transition: transform 0.2s;
+}
+.drawing-card:hover {
+    transform: scale(1.05);
+}
+.drawing-card img {
+    width: 200px;
+    height: 200px;
+    object-fit: cover;
+}
+.drawing-card {
+    position: relative;
+    cursor: pointer;
+    border: 2px solid black;
+    border-radius: 16px;
+    padding: 10px;
+    transition: transform 0.2s;
+}
+
+.delete-btn {
+    position: absolute;
+    top: 5px;
+    right: 5px;
+    background: white;
+    color: black;
+    border: 1px solid black;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    font-size: 12px;
+}
 /***********FOOTER***********/
 .footer-container{
     display : flex;

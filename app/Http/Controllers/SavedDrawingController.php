@@ -27,4 +27,14 @@ class SavedDrawingController extends Controller
         $drawings = SavedDrawing::where('user_id', Auth::id())->get();
         return view('account', compact('drawings'));
     }
+    public function destroy($id)
+    {
+        $drawing = SavedDrawing::where('id', $id)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+        
+        $drawing->delete();
+        
+        return redirect('/account');
+    }
 }
