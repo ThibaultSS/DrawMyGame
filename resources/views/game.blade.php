@@ -10,7 +10,30 @@ window.goalColor = "{{ session('goalColor') }}";
 window.playerColor = "{{ session('playerColor') }}";
 window.hazardColor = "{{ session('hazardColor') }}";
 </script>
+<style>
+#loading-screen{
+    position: fixed;
+    inset: 0;
 
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    margin-top: 200px;
+    margin-right: 250px;
+    z-index: 9999;
+}
+
+#loading-screen img{
+    width: 150px;
+}
+</style>
+<div id="loading-screen">
+    <img
+        src="/assets/loading.gif"
+        alt="Loading..."
+    >
+</div>
 <div class="game-body">
 <div id="game-container"></div>
 <div id="popup" style="display:none;">

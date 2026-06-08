@@ -726,6 +726,7 @@ document
             parseInt(e.target.value);
 
     });
+    document.getElementById("loading-screen").style.display = "none";
 }
 
 
