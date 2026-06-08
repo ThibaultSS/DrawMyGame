@@ -17,7 +17,7 @@ window.hazardColor = "{{ session('hazardColor') }}";
     <div id="popup-box">
         <h1 id="popup-message"></h1>
         <div class="popupButtons">
-        <button class="button-border" onclick="window.location.href='/'">Quit</button>
+        <button class="button-border" onclick="closePopup()">Close</button>
         <button class="button-border" onclick="location.reload()">Retry</button>
         </div>
     </div>
@@ -41,6 +41,8 @@ window.hazardColor = "{{ session('hazardColor') }}";
 </div>
 
 <script>
+window.gamePaused = false;
+
 window.levelImage =
     "{{ asset('storage/' . session('uploadedLevel')) }}";
 document.getElementById('saveBtn')?.addEventListener('click', () => {
@@ -56,6 +58,16 @@ document.getElementById('saveBtn')?.addEventListener('click', () => {
         if (data.success) alert('Drawing saved!');
     });
 });
+function showPopup(message) {
+    document.getElementById('popup-message').textContent = message;
+    document.getElementById('popup').style.display = 'flex';
+}
+function closePopup() {
+
+    window.gamePaused = false;
+
+    document.getElementById('popup').style.display = 'none';
+}
 </script>
 
 @endsection

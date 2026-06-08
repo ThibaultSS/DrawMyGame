@@ -27,6 +27,8 @@ const config = {
     }
 };
 
+
+
 let player;
 let cursors;
 let canJump = false;
@@ -592,6 +594,8 @@ function createPlayer(scene) {
 }
 
 function showPopup(message) {
+            window.gamePaused = true;
+
     document.getElementById('popup-message').textContent = message;
     document.getElementById('popup').style.display = 'flex';
 }
@@ -740,6 +744,10 @@ document
 
 
 function update() {
+    if(window.gamePaused){
+        console.log("PAUZE");
+        return;
+    }
     const speed = moveSpeed;
     if (cursors.left.isDown) {
         Phaser.Physics.Matter.Matter.Body.setVelocity(
