@@ -74,7 +74,7 @@ function matchesColor(
     pixels,
     width,
     targetColor,
-    tolerance = 50
+    tolerance = 70
 ) {
 
     const index =
@@ -116,6 +116,10 @@ function getConnectedShapes(pixels,width,height,colorCheck) {
             if (!colorCheck(x,y,pixels,width)) continue;
 
             shape.push({x,y});
+            if(shape.length > 100000){
+    console.log("Shape exceeded limit");
+    return shape;
+}
             stack.push([x+1,y]);
             stack.push([x-1,y]);
             stack.push([x,y+1]);
@@ -197,6 +201,46 @@ function simplifyOutline(outline, step = 10) {
         simplified.push(outline[i]);
     }
     return simplified;
+}
+function createRectangleBodies(scene, shapes, options = {}, label = null) {
+
+    shapes.forEach(shape => {
+
+        let minX = Infinity;
+        let minY = Infinity;
+        let maxX = -Infinity;
+        let maxY = -Infinity;
+
+        shape.forEach(point => {
+
+            minX = Math.min(minX, point.x);
+            minY = Math.min(minY, point.y);
+
+            maxX = Math.max(maxX, point.x);
+            maxY = Math.max(maxY, point.y);
+
+        });
+
+        const width = maxX - minX;
+        const height = maxY - minY;
+
+        const centerX = minX + width / 2;
+        const centerY = minY + height / 2;
+
+        const body = scene.matter.add.rectangle(
+            centerX,
+            centerY,
+            width,
+            height,
+            options
+        );
+
+        if(label){
+            body.label = label;
+        }
+
+    });
+
 }
 
 //omvormen van afbeelding naar scene data
@@ -306,7 +350,8 @@ const playerColor =
 
     console.log("Platforms created:", levelData.length);
     ****************************************/
-   
+   console.log("Starting platform detection");
+
     const shapes =
     getConnectedShapes(
         pixels,
@@ -321,6 +366,10 @@ const playerColor =
                 platformColor
             )
     );
+    console.log("Platform detection done");
+
+console.log("Starting goal detection");
+
 
 const goalShapes =
     getConnectedShapes(
@@ -336,7 +385,9 @@ const goalShapes =
                 goalColor
             )
     );
+console.log("Goal detection done");
 
+console.log("Starting player detection");
 const playerShapes =
     getConnectedShapes(
         pixels,
@@ -351,6 +402,9 @@ const playerShapes =
                 playerColor
             )
     );
+    console.log("Player detection done");
+
+    console.log("Starting hazard detection");
     const hazardShapes =
     getConnectedShapes(
         pixels,
@@ -365,6 +419,7 @@ const playerShapes =
                 hazardColor
             )
     );
+    console.log("Hazard detection done");
 
     outlines = shapes.map(shape => {
         const outline =getOutline(shape);
@@ -383,6 +438,7 @@ const playerShapes =
         }));
 
     });
+    
     if(playerShapes.length > 0){
 
         const biggestShape = playerShapes.sort((a,b) => b.length - a.length)[0];
@@ -418,77 +474,39 @@ const playerShapes =
 
 
 
-function createObjects(scene,shapes,color,physicsOptions = {}, label = null) {
-    console.log("Creating:", shapes);
+function createObjects(scene, shapes, color) {
+
     const graphics = scene.add.graphics();
+
     graphics.fillStyle(color);
+
     shapes.forEach(shape => {
-        if (!shape || shape.length < 10){
+
+        if (!shape || shape.length < 3) {
             return;
         }
 
-        // Draw object
         graphics.beginPath();
-        graphics.moveTo(shape[0].x,shape[0].y);
+
+        graphics.moveTo(
+            shape[0].x,
+            shape[0].y
+        );
+
         shape.forEach(point => {
-            graphics.lineTo(point.x,point.y);
+
+            graphics.lineTo(
+                point.x,
+                point.y
+            );
+
         });
+
         graphics.closePath();
         graphics.fillPath();
 
-
-        // Physics
-        const center =Phaser.Physics.Matter.Matter.Vertices.centre(shape);
-        const centerX = center.x;
-        const centerY = center.y;
-        const relativeVertices = shape.map(p => ({
-                x: p.x - centerX,
-                y: p.y - centerY
-            }));
-        if(relativeVertices.length < 3){
-            return;
-        }
-        let body = null;
-
-        try{
-            body =
-                scene.matter.add.fromVertices(centerX,centerY,relativeVertices,physicsOptions);
-        }
-        catch(error){
-            console.log("Invalid shape skipped:",shape);
-            return;
-        }
-
-        if(body){
-            const bounds = body.bounds;
-            const bodyCenterX = (bounds.min.x + bounds.max.x)/2;
-            const bodyCenterY = (bounds.min.y + bounds.max.y)/2;
-            const shapeCenterX = shape.reduce((sum, p)=>sum + p.x, 0) / shape.length;
-            const shapeCenterY = shape.reduce((sum, p)=>sum + p.y, 0) / shape.length;
-
-            Phaser.Physics.Matter.Matter.Body.setPosition(
-                body,
-                {
-                    x:
-                    body.position.x +
-                    (shapeCenterX-bodyCenterX),
-
-                    y:
-                    body.position.y +
-                    (shapeCenterY-bodyCenterY)
-                }
-            );
-
-            if(label){
-                body.label = label;
-                if(body.parts){
-                    body.parts.forEach(part=>{
-                        part.label = label;
-                    });
-                }
-            }
-        }
     });
+
 }
 
 function createPlayer(scene) {
@@ -641,14 +659,48 @@ if(playerCollision && hazardCollision){
         /*************************Drawing platforms visualize************************************ */
 
 // Platforms
-createObjects(this, outlines, window.platformColor.replace("#", "0x"), {isStatic:true});
-
+createObjects(
+    this,
+    outlines,
+    window.platformColor.replace("#","0x")
+);
+createRectangleBodies(
+    this,
+    outlines,
+    { isStatic:true }
+);
 // Goal
-createObjects(this, goalOutlines,window.goalColor.replace("#", "0x"), {isStatic:true, isSensor:true}, "goal");
+createObjects(
+    this,
+    goalOutlines,
+    window.goalColor.replace("#","0x")
+);
 
+createRectangleBodies(
+    this,
+    goalOutlines,
+    {
+        isStatic:true,
+        isSensor:true
+    },
+    "goal"
+);
 // Hazard
-createObjects(this, hazardOutlines,window.hazardColor.replace("#", "0x"), {isStatic:true, isSensor:true}, "hazard");
+createObjects(
+    this,
+    hazardOutlines,
+    window.hazardColor.replace("#","0x")
+);
 
+createRectangleBodies(
+    this,
+    hazardOutlines,
+    {
+        isStatic:true,
+        isSensor:true
+    },
+    "hazard"
+);
         /*************************Drawing platforms visualize************************************ */
 
 

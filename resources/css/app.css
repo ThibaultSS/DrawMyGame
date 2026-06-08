@@ -259,6 +259,8 @@ nav a:hover::after {
 }
 #game-container canvas {
     background: transparent;
+    width: 1200px;
+    height: auto;
 }
 
 #popup {
