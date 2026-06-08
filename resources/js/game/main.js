@@ -600,15 +600,41 @@ function showPopup(message) {
     document.getElementById('popup').style.display = 'flex';
 
     if(message === "You won!"){
-
+        // first burst
         confetti({
-            particleCount: 150,
-            spread: 100,
-            origin: {
-                y: 0.4
-            }
+            particleCount: 200,
+            spread: 120,
+            origin: { y: 0.4 }
         });
 
+        // left side burst
+        setTimeout(() => {
+            confetti({
+                particleCount: 150,
+                angle: 60,
+                spread: 80,
+                origin: { x: 0, y: 0.5 }
+            });
+        }, 200);
+
+        // right side burst
+        setTimeout(() => {
+            confetti({
+                particleCount: 150,
+                angle: 120,
+                spread: 80,
+                origin: { x: 1, y: 0.5 }
+            });
+        }, 400);
+
+        // final big burst
+        setTimeout(() => {
+            confetti({
+                particleCount: 300,
+                spread: 160,
+                origin: { y: 0.3 }
+            });
+        }, 600);
     }
 }
 

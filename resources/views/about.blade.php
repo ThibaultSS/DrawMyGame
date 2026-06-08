@@ -34,7 +34,7 @@
   <div class="banner-content">
     <h1>About</h1>
     <p class="banner-content-about">
-I am a student at KdG University of Applied Sciences and Arts in Hoboken, where I study Multimedia & Creative Technologies. <br>Draw Platformer was developed as my bachelor's project and represents the skills and knowledge I have gained throughout my studies. <br>It combines web development, game development, and image processing into a single interactive experience, making it a project I am particularly proud of.
+I am a student at KdG University of Applied Sciences and Arts in Hoboken, where I study Multimedia & Creative Technologies. <br>DrawMyGame was developed as my bachelor's project and represents the skills and knowledge I have gained throughout my studies. <br>It combines web development, game development and image processing into a single interactive experience, making it a project I am particularly proud of.
     </p>
     <button class="button-border" onclick="window.location.href='/upload'">Try it out!</button>
   </div>
@@ -47,15 +47,15 @@ I am a student at KdG University of Applied Sciences and Arts in Hoboken, where 
     </div>
     <div>
     <h2>About the website</h2>
-    <p>Draw Platformer is a web application that transforms simple drawings into playable platform games. <br>Instead of building levels with complex editors or coding mechanics by hand, users can sketch platforms, <br>goals, and characters using colors and instantly generate a game.<br>
-The project combines image processing, physics simulation, and game development to make level creation accessible to anyone. <br>Whether you are experimenting with game design or simply having fun, Draw Platformer turns creativity into gameplay within seconds.
+    <p>DrawMyGame is a web application that transforms simple drawings into playable platform games. <br>Instead of building levels with complex editors or coding mechanics by hand, users can sketch platforms, <br>goals and characters using colours and instantly generate a game.<br>
+The project combines image processing, physics simulation and game development to make level creation accessible to anyone. <br>Whether you are experimenting with game design or simply having fun, DrawMyGame turns creativity into gameplay within seconds.
      </p>
     </div>
   </div>
   <div class="explanation">
     <div>
     <h2>The technology behind it</h2>
-    <p>Draw Platformer is built using Laravel for the web application and Phaser for the game engine. <br>Uploaded images are processed pixel by pixel to identify shapes based on user-selected colors. <br>These shapes are converted into physics bodies, allowing platforms, goals, players, and hazards to interact naturally within the game.
+    <p>DrawMyGame is built using Laravel for the web application and Phaser for the game engine. <br>Uploaded images are processed pixel by pixel to identify shapes based on user-selected colours. <br>These shapes are converted into physics bodies, allowing platforms, goals, players and hazards to interact naturally within the game.
 
 <br>This approach demonstrates how image processing techniques can be combined with modern web technologies <br>to create dynamic and interactive content directly from user-created artwork.
      </p>

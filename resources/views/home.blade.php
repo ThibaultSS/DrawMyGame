@@ -70,26 +70,37 @@
     </div>
     <div>
     <h2>Start Drawing!</h2>
-    <p>You can make any level you want on a piece of paper! <br>
-     Just take some colors that are visually very different, the clearer the better. <br> 
-     Your imagination is your limit. You can draw rectangle platforms, maybe some stairs.<br>
-     Draw a endgoal, maybe a flag or a door. This is where the player needs to go to win the level.<br>
-     To make it more fun, you can also draw some hazards like spikes or lava. <br>
-     And finally, don't forget to draw the player! A simple circle is enough. <br>
-     </p>
+    <p>
+        Grab a piece of paper and let your creativity run wild! Draw your own platformer level 
+        and watch it come to life in the game. <br>Use 4 contrasting colours, for instance 
+        red, yellow, blue and black. <br>The bolder and cleaner your colours are, 
+        the better the game will work, so don't be shy with that marker.
+        <br>Every level needs four things. First, draw your platforms, these are the surfaces your 
+        player will run and jump on. <br>Think rectangles, stairs, floating islands, whatever comes 
+        to mind. Second, draw a goal like a flag, door or star. <br>This is where your player needs 
+        to reach to win the level. Third, spice things up with some hazards like spikes or lava 
+        that the player needs to avoid. <br>And finally, draw your player character somewhere on the 
+        level, a simple circle or blob is more than enough. <br>You can also do this in Paint, Illustrator
+        or whatever drawingtool you use. 
+    </p>
     </div>
   </div>
   <div class="explanation">
     <div>
     <h2>Take a picture</h2>
-    <p>After you are done drawing your level, it is time to take a picture. <br>
-     Be sure you are in a bright room and put the brightness on your phone high. <br> 
-     After you've taken the picture you can upload it on this website.<br>
-     Png's, jpgs name it. Every file works.<br>
-     </p>
+    <p>
+        Once you are happy with your drawing, it is time to bring it into the game. Start by 
+        taking a clear photo of your level. <br>Make sure you are in a well-lit room and crank up 
+        the brightness on your phone or camera for the best result. <br>Try to hold your phone 
+        directly above the drawing and keep it as flat and straight as possible. <br>The less 
+        distortion, the better the game will read your colours.
+        Once you have your photo, head over to the upload page and select your file. <br>The game 
+        accepts all common image formats including PNG, JPG and JPEG. <br>After uploading, you will be taken to the colour 
+        selection screen where you map each colour in your drawing to its role in the game. <br>From there, hit start and your level is ready to play.
+    </p>
     </div>
     <div class="photo-border">
-      <img src="{{ asset('assets/picture-phone.jpg') }}" alt="Start Drawing">
+      <img src="{{ asset('assets/picture-phone.png') }}" alt="Start Drawing">
     </div>
   </div>
   <div class="explanation">
@@ -98,12 +109,14 @@
     </div>
     <div>
     <h2>Upload & Play!</h2>
-    <p>To play your level you need to click on the upload button and submit your photo. <br>
-     After that you select what colors are your platfroms, hazards, endgoal and character.<br> 
-     You press play game and that's it! You can now play your own drawing!<br>
-     Want to make another one? No problem, you can upload as many levels as you want in DrawMyGame.<br>
-     Enjoy the experience!<br>
-     </p>
+      <p>
+          Use the arrow keys to move your character and jump your way to the goal while avoiding 
+          any hazards you drew along the way. <br>Every level is unique because you made it, the 
+          shapes, the layout, all of it comes straight from your imagination.
+          <br>Want to try something different? No problem. <br>You can upload as many levels as you want 
+          and even save your favorites to your account to replay them whenever you want. 
+          <br>So keep drawing, keep experimenting and most importantly, enjoy the experience!
+      </p>
     </div>
   </div>
 </div>

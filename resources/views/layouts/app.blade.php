@@ -44,7 +44,7 @@
 
 <header>
     <div class="header-container">
-        <img src="{{ asset('assets/DrawMyGame_Logo_Lang.svg') }}" alt="DrawMyGame" id="logo">
+        <img src="{{ asset('assets/DrawMyGame_Logo_Lang.jpg') }}" alt="DrawMyGame" id="logo">
         <div>
             <nav>
                 <a href="/">Home</a>
@@ -69,7 +69,7 @@
         <img src="{{ asset('assets/Rectangle.png') }}" alt="Layout" id="rectangle">
         <div>
             <p id="footer-title">Free <br>your <br>creativity</p>
-            <button class="button-border" onclick="window.location.href='/contact'">Contact us</button>
+            <button class="button-border" onclick="window.location.href='/login'">Make an account</button>
         </div>
         <div id="copyright">
             <p>
@@ -81,7 +81,7 @@
             <a href="/">Home</a>
             <a href="/about">About</a>
             <a href="/upload">Upload</a>
-            <a href="/contact">Contact</a>
+            <a href="{{ Auth::check() ? '/account' : '/login' }}">Account</a>
         </nav>
 
     </div>
