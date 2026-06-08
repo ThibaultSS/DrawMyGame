@@ -4,6 +4,7 @@
 
 
 <div id="account-container">
+
 <h1>My Saved Drawings</h1>
 
 <div class="drawings-grid">
@@ -20,7 +21,12 @@
     </div>
 @endforeach
 </div>
+<form method="POST" action="/logout">
+    @csrf
+    <button class="button-border" type="submit">Logout</button>
+</form>
 </div>
+
 
 
 

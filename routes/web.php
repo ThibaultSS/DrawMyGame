@@ -2,6 +2,8 @@
 
 use Illuminate\Support\Facades\Route;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
+
 use App\Http\Controllers\UploadLevelController;
 use App\Http\Controllers\GameSettingController;
 use App\Http\Controllers\RegisteredUserController;
@@ -30,7 +32,10 @@ Route::post('/start-game', [GameSettingController::class, 'startGame']);
 Route::post('/register', [RegisteredUserController::class, 'store']);
 Route::post('/login', [LoginController::class, 'store']);
 Route::post('/save-drawing', [SavedDrawingController::class, 'store']);
-
+Route::post('/logout', function() {
+    Auth::logout();
+    return redirect('/');
+});
 
 Route::get('/account', [SavedDrawingController::class, 'index']);
 Route::get('/play/{id}', function($id) {

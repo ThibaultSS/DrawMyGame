@@ -594,10 +594,22 @@ function createPlayer(scene) {
 }
 
 function showPopup(message) {
-            window.gamePaused = true;
+    window.gamePaused = true;
 
     document.getElementById('popup-message').textContent = message;
     document.getElementById('popup').style.display = 'flex';
+
+    if(message === "You won!"){
+
+        confetti({
+            particleCount: 150,
+            spread: 100,
+            origin: {
+                y: 0.4
+            }
+        });
+
+    }
 }
 
 function create() {
