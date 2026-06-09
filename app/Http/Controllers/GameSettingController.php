@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 
 class GameSettingController extends Controller
 {
-    public function startGame(Request $request)
+    public function __invoke(Request $request)
     {
         session([
             'platformColor' => $request->platformColor,

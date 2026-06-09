@@ -9,7 +9,7 @@ use Illuminate\Validation\Rules;
 
 class RegisteredUserController extends Controller
 {
-    public function store(Request $request)
+    public function __invoke(Request $request)
 {
     $request->validate([
         'username' => ['required', 'string', 'max:255', 'unique:users'],

@@ -49,6 +49,7 @@
                 <a href="/">Home</a>
                 <a href="/about">About</a>
                 <a href="/upload">Upload</a>
+                <a href="/community">Community</a>
             </nav>
             <div onclick="window.location.href='{{ Auth::check() ? '/account' : '/login' }}'" style="cursor:pointer;">
             @auth
@@ -84,7 +85,7 @@
             <a href="/">Home</a>
             <a href="/about">About</a>
             <a href="/upload">Upload</a>
-            <a href="{{ Auth::check() ? '/account' : '/login' }}">Account</a>
+            <a href="/community">Community</a>
         </nav>
 
     </div>

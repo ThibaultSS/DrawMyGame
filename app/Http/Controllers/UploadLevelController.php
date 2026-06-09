@@ -6,7 +6,7 @@ use Illuminate\Http\Request;
 
 class UploadLevelController extends Controller
 {
-    public function uploadLevel(Request $request)
+    public function __invoke(Request $request)
     {
         $path = $request
             ->file('levelImage')
