@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'Login Page')
+@section('title', 'Login')
 @section('content')
 
 <div id="auth-box">

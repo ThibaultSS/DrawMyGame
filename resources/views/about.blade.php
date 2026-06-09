@@ -1,5 +1,5 @@
 @extends('layouts.app')
-@section('title', 'Upload Level')
+@section('title', 'About')
 @section('content')
 <style>
         
