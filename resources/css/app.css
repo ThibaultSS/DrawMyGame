@@ -374,6 +374,40 @@ nav a:hover::after {
     cursor: pointer;
     font-size: 12px;
 }
+
+#toast {
+    align-self: center;
+    position: absolute;
+    background: #e6ffed;
+    color: #2e7d32;
+    border: 1px solid #2e7d32;
+    padding: 2px 10px;
+    border-radius: 8px;
+    font-size: 16px;
+    opacity: 0;
+    transition: opacity 0.5s ease;
+    pointer-events: none;
+}
+
+.publish-btn {
+    position: absolute;
+    top: 5px;
+    left: 5px;
+    background: white;
+    border: 1px solid black;
+    border-radius: 5px;
+    padding: 4px 8px;
+    cursor: pointer;
+    font-size: 12px;
+    transition: background 0.2s, color 0.2s;
+}
+
+.publish-btn.published {
+    background: #2e7d32;
+    color: white;
+    border-color: #2e7d32;
+}
+
 /***********FOOTER***********/
 .footer-container{
     display : flex;

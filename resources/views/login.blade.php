@@ -10,6 +10,12 @@
             @csrf
             <input type="email" name="email" placeholder="Email" required>
             <input type="password" name="password" placeholder="Password" required>
+            @error('password')
+                <p style="color: red; font-size: 14px;">{{ $message }}</p>
+            @enderror
+                        @error('email')
+                <p style="color: red; font-size: 14px;">{{ $message }}</p>
+            @enderror
             <button class="button-border" type="submit">Login</button>
         </form>
         <p>No account? <span onclick="showRegister()">Register</span></p>

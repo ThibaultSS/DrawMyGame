@@ -21,6 +21,23 @@ class SavedDrawingController extends Controller
 
         return response()->json(['success' => true]);
     }
+    public function togglePublish($id)
+    {
+        $drawing = SavedDrawing::where('id', $id)
+            ->where('user_id', Auth::id())
+            ->firstOrFail();
+
+        $drawing->published = !$drawing->published;
+        $drawing->save();
+
+        return redirect('/account');
+    }
+
+    public function community()
+    {
+        $drawings = SavedDrawing::where('published', true)->get();
+        return view('community', compact('drawings'));
+    }
 
     public function index()
     {

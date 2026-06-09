@@ -49,6 +49,7 @@ window.hazardColor = "{{ session('hazardColor') }}";
 <div id="controls">
     @auth
     <button class="button-border" id="saveBtn">Save Drawing</button>
+    <div id="toast">Drawing saved!</div>
     @endauth
     <label>
         <input type="range" id="speedSlider" min="1" max="20"value="5">
@@ -79,7 +80,13 @@ document.getElementById('saveBtn')?.addEventListener('click', () => {
     })
     .then(res => res.json())
     .then(data => {
-        if (data.success) alert('Drawing saved!');
+        if (data.success){
+            const toast = document.getElementById('toast');
+            toast.style.opacity = '1';
+            setTimeout(() => {
+                toast.style.opacity = '0';
+            }, 2500);
+        }
     });
 });
 function showPopup(message) {

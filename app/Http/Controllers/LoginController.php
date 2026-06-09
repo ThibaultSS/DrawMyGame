@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
+use App\Models\User;
 
 class LoginController extends Controller
 {
@@ -14,13 +15,17 @@ class LoginController extends Controller
             'password' => ['required'],
         ]);
 
-        if (Auth::attempt($request->only('email', 'password'))) {
-            $request->session()->regenerate();
-            return redirect('/account');
+        $user = User::where('email', $request->email)->first();
+
+        if (!$user) {
+            return back()->withErrors(['email' => 'No account found with this email address.']);
         }
 
-        return back()->withErrors([
-            'email' => 'These credentials do not match our records.',
-        ]);
+        if (!Auth::attempt($request->only('email', 'password'))) {
+            return back()->withErrors(['password' => 'The password is incorrect.']);
+        }
+
+        $request->session()->regenerate();
+        return redirect('/');
     }
 }

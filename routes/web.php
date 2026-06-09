@@ -26,6 +26,7 @@ Route::get('/about', function (){
 Route::get('login', function (){
     return view('login');
 });
+Route::get('/community', [SavedDrawingController::class, 'community']);
 
 Route::post('/upload-level', [UploadLevelController::class, 'uploadLevel']);
 Route::post('/start-game', [GameSettingController::class, 'startGame']);
@@ -36,6 +37,8 @@ Route::post('/logout', function() {
     Auth::logout();
     return redirect('/');
 });
+Route::post('/drawing/{id}/publish', [SavedDrawingController::class, 'togglePublish']);
+
 
 Route::get('/account', [SavedDrawingController::class, 'index']);
 Route::get('/play/{id}', function($id) {
