@@ -51,8 +51,12 @@
                 <a href="/upload">Upload</a>
             </nav>
             <div onclick="window.location.href='{{ Auth::check() ? '/account' : '/login' }}'" style="cursor:pointer;">
+            @auth
+                <div id="account-logo">{{ strtoupper(substr(Auth::user()->username, 0, 2)) }}</div>
+            @else
                 <img src="{{ asset('assets/account.svg') }}" alt="Account_logo" id="account-logo">
-            </div>
+            @endauth
+        </div>
         </div>
 
 
