@@ -16,7 +16,13 @@
                         @error('email')
                 <p style="color: red; font-size: 14px;">{{ $message }}</p>
             @enderror
+            <div class="login-buttons">
             <button class="button-border" type="submit">Login</button>
+            
+            <button class="google-btn" onclick="window.location.href='/auth/google'">
+                <img src="https://developers.google.com/identity/images/g-logo.png" width="30">
+            </button>
+            </div>
         </form>
         <p>No account? <span onclick="showRegister()">Register</span></p>
     </div>
