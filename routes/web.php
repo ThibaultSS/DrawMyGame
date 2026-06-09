@@ -25,7 +25,7 @@ Route::get('/about', function (){
 
 Route::get('login', function (){
     return view('login');
-});
+})->name('login');
 Route::get('/community', [SavedDrawingController::class, 'community']);
 
 Route::post('/upload-level', [UploadLevelController::class, 'uploadLevel']);
