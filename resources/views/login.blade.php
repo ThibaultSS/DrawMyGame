@@ -29,6 +29,15 @@
             <input type="email" name="email" placeholder="Email" required>
             <input type="password" name="password" placeholder="Password" required>
             <input type="password" name="password_confirmation" placeholder="Confirm Password" required>
+            @error('username')
+                <p style="color: red; font-size: 14px;">{{ $message }}</p>
+            @enderror
+            @error('email')
+                <p style="color: red; font-size: 14px;">{{ $message }}</p>
+            @enderror
+            @error('password')
+                <p style="color: red; font-size: 14px;">{{ $message }}</p>
+            @enderror
             <button class="button-border" type="submit">Register</button>
         </form>
         <p>Already have an account? <span onclick="showLogin()">Login</span></p>
