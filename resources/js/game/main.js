@@ -441,4 +441,27 @@ function update() {
 
 }
 
-new Phaser.Game(config);
+/**
+ * Boots the scene and returns the Phaser.Game so the caller can destroy it.
+ *
+ * Exported instead of run at import time: the Vue Game page mounts and unmounts
+ * as the user navigates, but a module only ever imports once. Booting on import
+ * would start the game on the first visit and never again — and the module-level
+ * state above would leak from one play into the next, so it is reset here.
+ */
+export function bootGame() {
+    player = undefined;
+    cursors = undefined;
+    canJump = false;
+    moveSpeed = 5;
+    jumpStrength = 10;
+    outlines = [];
+    goalOutlines = [];
+    hazardOutlines = [];
+    playerOutline = null;
+    playerGraphics = undefined;
+    playerOrigin = null;
+    levelRect = null;
+
+    return new Phaser.Game(config);
+}

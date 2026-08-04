@@ -7,11 +7,12 @@ import vue from '@vitejs/plugin-vue';
 export default defineConfig({
     plugins: [
         laravel({
+            // site.css + the Inertia bootstrap are the whole frontend now. The
+            // game engine has no entry of its own: the Game page imports it
+            // lazily, so Vite splits it into a chunk loaded only there.
             input: [
-                'resources/css/app.css',  // old stylesheet, for the Blade pages
-                'resources/css/site.css', // new stylesheet, for the Vue pages
+                'resources/css/site.css',
                 'resources/js/app.js',
-                'resources/js/game.js',
             ],
             refresh: true,
             // Builds go to public/build, which is where Laravel's @vite looks by
@@ -28,7 +29,17 @@ export default defineConfig({
             ],
         }),
         tailwindcss(),
-        vue(),
+        vue({
+            template: {
+                // Laravel serves /assets/... straight from public/, so absolute
+                // URLs in templates must be left for the browser to resolve at
+                // runtime — not treated as modules for Vite to bundle.
+                transformAssetUrls: {
+                    base: null,
+                    includeAbsolute: false,
+                },
+            },
+        }),
     ],
     server: {
         host: '0.0.0.0',

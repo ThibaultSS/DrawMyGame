@@ -1,70 +1,50 @@
 <?php
 
+use App\Http\Controllers\GameController;
 use App\Http\Controllers\GameSettingController;
 use App\Http\Controllers\GoogleController;
+use App\Http\Controllers\LevelImageController;
 use App\Http\Controllers\LoginController;
+use App\Http\Controllers\LogoutController;
 use App\Http\Controllers\RegisteredUserController;
 use App\Http\Controllers\SavedDrawingController;
 use App\Http\Controllers\UploadLevelController;
-use App\Models\SavedDrawing;
-use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
-use Inertia\Inertia;
 
-Route::get('/upload', function () {
-    return view('upload');
-});
-Route::get('/', function () {
-    return view('home');
-});
+// Static pages: Route::inertia renders the component directly, so there is no
+// controller or closure to maintain for a page with no data.
+Route::inertia('/', 'Home')->name('home');
+Route::inertia('/about', 'About')->name('about');
+Route::inertia('/upload', 'Upload')->name('upload');
 
-Route::get('/about', function () {
-    return view('about');
-});
-
-// The first page rebuilt as a Vue component. The rest still return Blade views.
 // 'guest' sends anyone already signed in away instead of showing them the form.
-Route::get('login', function () {
-    return Inertia::render('Login');
-})->middleware('guest')->name('login');
+Route::inertia('/login', 'Login')->middleware('guest')->name('login');
 
-Route::get('/game', function () {
-    return view('game');
-});
+Route::get('/community', [SavedDrawingController::class, 'community'])->name('community');
 
-Route::get('/community', [SavedDrawingController::class, 'community']);
-Route::get('/account', [SavedDrawingController::class, 'index']);
-Route::get('/play/{id}', function ($id) {
-    $drawing = SavedDrawing::findOrFail($id);
-    session(['uploadedLevel' => $drawing->image_path]);
+// The colour-picking step. Both ways into it — a fresh upload and replaying a
+// saved drawing — put the image path in the session first, then land here.
+Route::get('/game-setting', [GameSettingController::class, 'show'])->name('game-setting');
+Route::get('/play/{drawing}', [SavedDrawingController::class, 'play'])->name('play');
+Route::get('/game', GameController::class)->name('game');
 
-    return view('gameSetting');
-});
-Route::get('/auth/google', [GoogleController::class, 'redirect']);
-Route::get('/auth/google/callback', [GoogleController::class, 'callback']);
+// Level images live on the private disk and are only served through these two
+// routes, which check who may see what.
+Route::get('/uploaded-level', [LevelImageController::class, 'current'])->name('uploaded-level');
+Route::get('/drawings/{drawing}/image', [LevelImageController::class, 'drawing'])->name('drawings.image');
 
-Route::post('/upload-level', UploadLevelController::class);
-Route::post('/start-game', GameSettingController::class);
-Route::post('/register', RegisteredUserController::class);
-Route::post('/login', LoginController::class);
-Route::post('/logout', function (Request $request) {
-    Auth::logout();
+Route::get('/auth/google', [GoogleController::class, 'redirect'])->name('google.redirect');
+Route::get('/auth/google/callback', [GoogleController::class, 'callback'])->name('google.callback');
 
-    // Logging out has to throw the session away, not just forget who owns it.
-    // Without invalidate() the session record survives, and without
-    // regenerateToken() the old CSRF token stays valid.
-    $request->session()->invalidate();
-    $request->session()->regenerateToken();
-
-    // Works both ways: an ordinary redirect for the Blade form on the account
-    // page, a full page visit for an Inertia request.
-    return Inertia::location('/');
-});
+Route::post('/upload-level', UploadLevelController::class)->name('upload-level');
+Route::post('/start-game', [GameSettingController::class, 'store'])->name('start-game');
+Route::post('/register', RegisteredUserController::class)->name('register');
+Route::post('/login', LoginController::class)->name('login.attempt');
+Route::post('/logout', LogoutController::class)->name('logout');
 
 Route::middleware('auth')->group(function () {
-    Route::get('/account', [SavedDrawingController::class, 'index']);
-    Route::post('/save-drawing', [SavedDrawingController::class, 'store']);
-    Route::post('/drawing/{id}/publish', [SavedDrawingController::class, 'togglePublish']);
-    Route::delete('/drawing/{id}', [SavedDrawingController::class, 'destroy']);
+    Route::get('/account', [SavedDrawingController::class, 'index'])->name('account');
+    Route::post('/save-drawing', [SavedDrawingController::class, 'store'])->name('drawings.store');
+    Route::post('/drawing/{id}/publish', [SavedDrawingController::class, 'togglePublish'])->name('drawings.publish');
+    Route::delete('/drawing/{id}', [SavedDrawingController::class, 'destroy'])->name('drawings.destroy');
 });

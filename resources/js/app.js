@@ -1,7 +1,6 @@
 /**
- * Inertia bootstrap. Loaded by the root view (resources/views/app.blade.php), so
- * it runs on migrated pages only. Blade pages still use layouts/app.blade.php and
- * load nothing from here.
+ * Inertia bootstrap, loaded by the root view (resources/views/app.blade.php).
+ * Every page is an Inertia page, so this is the only JS entry point.
  *
  * The resolve and setup callbacks are written out by hand rather than installing
  * @inertiajs/vite. One less dependency, and it is visible where page components

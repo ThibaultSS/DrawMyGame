@@ -37,7 +37,7 @@ class GoogleController extends Controller
         // before signing in cannot be reused afterwards.
         $request->session()->regenerate();
 
-        return redirect('/');
+        return redirect()->route('home');
     }
 
     /**

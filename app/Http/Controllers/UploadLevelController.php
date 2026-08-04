@@ -2,22 +2,21 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Http\Requests\UploadLevelRequest;
+use Illuminate\Http\RedirectResponse;
 
 class UploadLevelController extends Controller
 {
-    public function __invoke(Request $request)
+    public function __invoke(UploadLevelRequest $request): RedirectResponse
     {
+        // The private disk on purpose: level images are only reachable through
+        // LevelImageController's checks, never by a direct storage URL.
         $path = $request
             ->file('levelImage')
-            ->store('levels','public');
-        session(['uploadedLevel'=>$path]);
+            ->store('levels', 'local');
 
-        return view(
-            'gameSetting',
-            [
-                'imagePath' => $path
-            ]
-        );
+        session(['uploadedLevel' => $path]);
+
+        return redirect()->route('game-setting');
     }
 }

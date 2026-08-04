@@ -2,12 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\LoginRequest;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\Str;
-use Inertia\Inertia;
-use Symfony\Component\HttpFoundation\Response;
 
 class LoginController extends Controller
 {
@@ -16,13 +16,8 @@ class LoginController extends Controller
      */
     private const MAX_ATTEMPTS = 5;
 
-    public function __invoke(Request $request): Response
+    public function __invoke(LoginRequest $request): RedirectResponse
     {
-        $request->validate([
-            'email' => ['required', 'email'],
-            'password' => ['required'],
-        ]);
-
         $throttleKey = $this->throttleKey($request);
 
         // A generic error message stops the form being used to find out which
@@ -36,7 +31,7 @@ class LoginController extends Controller
             ]);
         }
 
-        if (! Auth::attempt($request->only('email', 'password'))) {
+        if (! Auth::attempt($request->validated())) {
             RateLimiter::hit($throttleKey);
 
             return back()->withErrors([
@@ -48,14 +43,11 @@ class LoginController extends Controller
 
         $request->session()->regenerate();
 
-        // intended() returns wherever the user was headed when they were bounced to
-        // the login page, falling back to the home page. Without it, someone who
-        // asked for /account lands on / instead and has to navigate again.
-        //
-        // Inertia::location rather than the redirect itself: the target is still a
-        // Blade page, and an Inertia request that receives plain HTML throws. It
-        // still returns an ordinary redirect for non-Inertia requests.
-        return Inertia::location(redirect()->intended('/')->getTargetUrl());
+        // intended() returns wherever the user was headed when they were bounced
+        // to the login page, falling back to the home page. Every page is an
+        // Inertia page now, so a plain redirect is enough: Inertia follows it
+        // and swaps the page component in place.
+        return redirect()->intended(route('home'));
     }
 
     /**

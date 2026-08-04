@@ -6,7 +6,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 DrawMyGame turns a hand-drawn picture into a playable platformer. A user uploads an image, clicks on it to pick which colors mean *platform*, *goal*, *player*, and *hazard*, and a Phaser 4 / Matter.js scene converts those colored pixel regions into physics bodies.
 
-The backend is a thin Laravel shell: it stores the upload, holds the level choices in the **session**, and renders Blade views. All level parsing and gameplay happens client-side in `resources/js/game/main.js`.
+The backend is a thin Laravel shell: it stores the upload, holds the level choices in the **session**, and serves Inertia responses. The frontend is Vue 3 pages in `resources/js/Pages/` inside the `resources/js/Layouts/AppLayout.vue` shell; the single Blade file left is `resources/views/app.blade.php`, the Inertia root. All level parsing and gameplay happens client-side in `resources/js/game/`.
+
+House style: white page, black ink, `#D9D9D9` sub-colour — expressed only through the theme tokens in `resources/css/site.css` (`bg-page`, `text-ink`, `border-sub`, `text-error`). Do not introduce other colours without asking.
 
 ## Commands
 
@@ -23,20 +25,20 @@ php artisan test --compact tests/Feature/GameTest.php
 vendor/bin/pint --dirty --format agent
 ```
 
-Uploads are served through `asset('storage/...')`, so `php artisan storage:link` must have been run or every level image 404s.
+Level uploads live on the **private** `local` disk (`storage/app/private/levels`) and are only served through `LevelImageController`: `route('uploaded-level')` for the session's current level, `route('drawings.image', $drawing)` for saved ones (published → everyone, unpublished → owner only). There are no public storage URLs for levels, so `storage:link` is not part of this flow.
 
 ## Request flow (the core feature)
 
 State is threaded through the **session**, not the database:
 
-1. `GET /upload` → form posts to `POST /upload-level`
-2. `UploadLevelController` stores the file on the `public` disk under `levels/` and puts the path in `session('uploadedLevel')`, then renders `gameSetting`
-3. `gameSetting.blade.php` runs an inline-JS eyedropper: it draws the image to an offscreen canvas and reads the clicked pixel into four hidden hex inputs
-4. `POST /start-game` → `GameSettingController` writes `platformColor`, `goalColor`, `playerColor`, `hazardColor` to the session and redirects to `/game`
-5. `game.blade.php` echoes those session values into `window.levelImage` / `window.platformColor` / … — this is the **only** interface between PHP and the game engine
-6. `/play/{id}` re-enters the same flow for a saved drawing by setting `session('uploadedLevel')` from the `SavedDrawing` record
+1. `GET /upload` (`Pages/Upload.vue`) posts the file to `POST /upload-level` the moment one is chosen
+2. `UploadLevelController` validates it (`UploadLevelRequest`: real image content, ≤10 MB, no SVG), stores it on the private `local` disk under `levels/`, puts the path in `session('uploadedLevel')`, and redirects to `GET /game-setting`
+3. `GameSettingController::show` renders `Pages/GameSetting.vue` (the eyedropper) with `route('uploaded-level')` as the image prop; without `session('uploadedLevel')` it redirects to `/upload`
+4. `POST /start-game` → `GameSettingController::store` (`StartGameRequest`: four `#rrggbb` values required) writes the colours to the session and redirects to `/game`
+5. `GET /game` (`GameController`) renders `Pages/Game.vue` with the image URL and the four colours as **props** (redirecting to `/upload` if the session is incomplete); `Game.vue` copies them onto `window.*` before booting the engine — that `window.*` contract is the only interface between the page and `main.js`
+6. `/play/{drawing}` re-enters the same flow for a saved drawing (published, or unpublished-but-yours; anything else 404s): it sets `session('uploadedLevel')` from the record and redirects to `/game-setting`
 
-Consequence: the game page is meaningless without prior session state, and changing a session key name means changing it in the controller, the Blade `window.*` block, and `main.js`.
+Consequence: changing a session key or prop name means changing it in the controller/route, the page component, and (for the game) `main.js`.
 
 ## Game engine (`resources/js/game/main.js`)
 
@@ -55,21 +57,23 @@ Goal and hazard bodies are identified by `body.label` (`"goal"` / `"hazard"`) se
 
 The player is the **largest** player-colored shape; its Matter body is a rectangle with `setInertia(Infinity)` so it can't tilt, and `update()` redraws the player polygon each frame by offsetting the original outline from the body position.
 
-`window.gamePaused` gates `update()`. Note `showPopup` exists twice — once in `main.js` (module scope, fires confetti) and once as a global in `game.blade.php`; `canvas-confetti` is loaded from a CDN there.
+`window.gamePaused` gates `update()`. The engine does not boot on import: `main.js` exports `bootGame()`, which resets the module-level state and returns the `Phaser.Game`; `Game.vue` calls it on mount (after setting the `window.*` inputs) and `game.destroy(true)` on unmount. The engine also reaches into the page by element id — `game-container`, `loading-screen`, `popup`, `popup-message`, `speedSlider`, `jumpSlider` — so those ids in `Game.vue` are part of the contract. `canvas-confetti` is a CDN script injected by `Game.vue`; `showPopup` in `main.js` fires it via the global `confetti`.
 
 ## Frontend wiring
 
-- Vite entrypoints are only `resources/css/app.css` and `resources/js/app.js`; `app.js` does nothing but `import './game/main'`.
-- `layouts/app.blade.php` includes the CSS but has `app.js` **commented out** — `game.blade.php` calls `@vite('resources/js/app.js')` itself, so Phaser loads only on the game page. Adding JS to `app.js` makes it game-page-only.
-- `vite.config.js` sets `buildDirectory: '../../www/build'`, so built assets land outside `public/` (deploy host layout). Don't "fix" this to `build` without checking the deploy target.
-- Styling is a mix of Tailwind v4 and hand-written CSS in `resources/css/app.css`, plus `<style>` blocks inside individual views. Animated PNG-frame borders (`.button-border`, `.photo-border`) are driven by `setInterval` swapping a `--border-frame` CSS variable.
+- Vite entrypoints are only `resources/css/site.css` and `resources/js/app.js` (the hand-written Inertia bootstrap — no `@inertiajs/vite` plugin). Pages resolve via `import.meta.glob("./Pages/**/*.vue")`.
+- Phaser has no entry of its own: `Game.vue` imports `../game/main.js` lazily on mount, so Vite splits the engine into a chunk (~1.4 MB) that only the game page downloads.
+- The Vue plugin sets `transformAssetUrls: { base: null, includeAbsolute: false }` — static `/assets/...` paths in templates are served from `public/` by Laravel and must not be treated as modules, or the build fails.
+- Styling is Tailwind v4 with the house-style `@theme` tokens in `site.css`. No component-level `<style>` blocks except `Game.vue`'s canvas scaling rule.
 
 ## Backend notes
 
-- Controllers are a mix of single-action `__invoke` (`UploadLevelController`, `GameSettingController`, `LoginController`, `RegisteredUserController`) and resourceful (`SavedDrawingController`, `GoogleController`).
-- `SavedDrawing` uses `SoftDeletes` and only stores `user_id` / `image_path` / `published` — colors and gameplay settings are never persisted, so a replayed level requires re-picking colors.
+- Every route is named and there are no closures in `routes/web.php`: static pages use `Route::inertia()`, everything else goes to a controller — single-action `__invoke` (`UploadLevelController`, `GameController`, `LogoutController`, `LoginController`, `RegisteredUserController`) or multi-method (`SavedDrawingController`, `GameSettingController`, `LevelImageController`, `GoogleController`). Validation lives in Form Request classes under `app/Http/Requests/`.
+- Community and Account paginate (12 per page); the paginator object is passed to Vue whole, and `Components/Pagination.vue` renders its `links`. Shared UI lives in `resources/js/Components/` (`Pagination`, `FlashToast` — the latter sits in `AppLayout` and turns any `back()->with('message', ...)` into a toast).
+- Deleting a drawing soft-deletes the row and removes the image file, unless another row (live or trashed) still references the same path — replaying copies paths between saves, even across users.
+- `SavedDrawing` uses `SoftDeletes` and only stores `user_id` / `image_path` / `published` — colors and gameplay settings are never persisted, so a replayed level requires re-picking colors. Models declare mass assignment with the `#[Fillable]` attribute, not `protected $fillable`.
 - Ownership is enforced inline with `->where('user_id', Auth::id())->firstOrFail()`, not policies.
-- `/account` is registered twice in `routes/web.php` (unguarded and inside the `auth` group); the guarded registration wins.
+- Shared Inertia props live in `HandleInertiaRequests::share()`: `auth.user` (id/username/initials only — everything shared is readable in the page source) and `flash.message`, which the Account and Game pages surface as a toast after `back()->with('message', ...)`.
 - Auth is hand-rolled (no Breeze/Fortify) plus Socialite for Google.
 - Tests are written as PHPUnit classes in `tests/Feature/GameTest.php` even though Pest 4 is installed — follow the existing class style when extending that file.
 

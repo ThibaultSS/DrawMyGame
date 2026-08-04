@@ -2,31 +2,23 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\RegisterRequest;
 use App\Models\User;
-use Illuminate\Http\Request;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rules\Password;
-use Inertia\Inertia;
-use Symfony\Component\HttpFoundation\Response;
 
 class RegisteredUserController extends Controller
 {
-    public function __invoke(Request $request): Response
+    public function __invoke(RegisterRequest $request): RedirectResponse
     {
-        $request->validate([
-            'username' => ['required', 'string', 'max:255', 'unique:users'],
-            'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-            // Password::defaults() is at least 8 characters. Before this, 'a' was a
-            // valid password.
-            'password' => ['required', 'confirmed', Password::defaults()],
-        ]);
+        $validated = $request->validated();
 
         $user = User::create([
-            'name' => $request->username,
-            'username' => $request->username,
-            'email' => $request->email,
-            'password' => Hash::make($request->password),
+            'name' => $validated['username'],
+            'username' => $validated['username'],
+            'email' => $validated['email'],
+            'password' => Hash::make($validated['password']),
         ]);
 
         Auth::login($user);
@@ -35,7 +27,6 @@ class RegisteredUserController extends Controller
         // signing up cannot be reused afterwards.
         $request->session()->regenerate();
 
-        // Same reason as the login redirect: the home page is not an Inertia page yet.
-        return Inertia::location('/');
+        return redirect()->route('home');
     }
 }

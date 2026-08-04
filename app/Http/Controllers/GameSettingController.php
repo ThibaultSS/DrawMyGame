@@ -2,19 +2,33 @@
 
 namespace App\Http\Controllers;
 
-use Illuminate\Http\Request;
+use App\Http\Requests\StartGameRequest;
+use Illuminate\Http\RedirectResponse;
+use Inertia\Inertia;
+use Inertia\Response;
 
 class GameSettingController extends Controller
 {
-    public function __invoke(Request $request)
+    /**
+     * The colour-picking screen. The image it shows is whatever the session
+     * says was uploaded; arriving without one means the flow was entered
+     * sideways, so the visit starts over at the upload form.
+     */
+    public function show(): Response|RedirectResponse
     {
-        session([
-            'platformColor' => $request->platformColor,
-            'goalColor' => $request->goalColor,
-            'playerColor' => $request->playerColor,
-            'hazardColor' => $request->hazardColor
-        ]);
+        if (! session()->has('uploadedLevel')) {
+            return redirect()->route('upload');
+        }
 
-        return redirect('/game');
+        return Inertia::render('GameSetting', [
+            'image' => route('uploaded-level'),
+        ]);
+    }
+
+    public function store(StartGameRequest $request): RedirectResponse
+    {
+        session($request->validated());
+
+        return redirect()->route('game');
     }
 }

@@ -1,16 +1,17 @@
 <script setup>
 /**
- * The shell every migrated page sits in: a top bar with the nav and the account
- * chip, and a slim footer.
+ * The shell every page sits in: a top bar with the nav and the account chip,
+ * and a slim footer.
  *
- * The nav links are plain <a> elements, not Inertia <Link>s, and have to stay
- * that way until the pages they point at are migrated. A <Link> fetches its
- * target over XHR and expects an Inertia response; Home, About, Upload and
- * Community are still Blade, so that request would come back as plain HTML and
- * Inertia would throw. A plain <a> is a normal browser navigation and just works.
+ * Now that every page is an Inertia page, the nav uses <Link> throughout: a
+ * Link fetches its target over XHR and swaps the page component in place, so
+ * navigation keeps the app state and skips the full reload. Only off-site
+ * destinations (like /auth/google on the login page) still need a plain <a>.
  */
 import { computed } from "vue";
-import { router, usePage } from "@inertiajs/vue3";
+import { Link, router, usePage } from "@inertiajs/vue3";
+
+import FlashToast from "../Components/FlashToast.vue";
 
 const NAV_LINKS = [
     { label: "Home", href: "/" },
@@ -39,37 +40,37 @@ function logout() {
         <header class="border-b border-sub">
             <div class="mx-auto flex w-full max-w-6xl items-center justify-between gap-8 px-6 py-4">
 
-                <a href="/" class="text-lg font-semibold tracking-tight">
+                <Link href="/" class="text-lg font-semibold tracking-tight">
                     DrawMyGame
-                </a>
+                </Link>
 
                 <nav class="flex items-center gap-6 text-sm">
-                    <a
+                    <Link
                         v-for="link in NAV_LINKS"
                         :key="link.href"
                         :href="link.href"
                         class="hover:underline"
                     >
                         {{ link.label }}
-                    </a>
+                    </Link>
 
                     <template v-if="user">
-                        <a
+                        <Link
                             href="/account"
                             class="flex size-9 items-center justify-center rounded-full bg-sub text-xs font-semibold"
                             :title="user.username"
                         >
                             {{ user.initials }}
-                        </a>
+                        </Link>
 
                         <button type="button" class="hover:underline" @click="logout">
                             Log out
                         </button>
                     </template>
 
-                    <a v-else href="/login" class="hover:underline">
+                    <Link v-else href="/login" class="hover:underline">
                         Log in
-                    </a>
+                    </Link>
                 </nav>
 
             </div>
@@ -85,18 +86,20 @@ function logout() {
                 <p>&copy; {{ year }} DrawMyGame</p>
 
                 <nav class="flex gap-6">
-                    <a
+                    <Link
                         v-for="link in NAV_LINKS"
                         :key="link.href"
                         :href="link.href"
                         class="hover:underline"
                     >
                         {{ link.label }}
-                    </a>
+                    </Link>
                 </nav>
 
             </div>
         </footer>
+
+        <FlashToast />
 
     </div>
 </template>
