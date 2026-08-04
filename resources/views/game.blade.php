@@ -30,10 +30,7 @@ window.hazardColor = "{{ session('hazardColor') }}";
 }
 </style>
 <div id="loading-screen">
-    <img
-        src="/assets/loading.gif"
-        alt="Loading..."
-    >
+    <img src="{{ asset('assets/Loading.gif') }}" alt="Loading...">
 </div>
 <div class="game-body">
 <div id="game-container"></div>

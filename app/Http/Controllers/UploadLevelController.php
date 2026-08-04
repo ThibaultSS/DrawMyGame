@@ -14,7 +14,7 @@ class UploadLevelController extends Controller
         session(['uploadedLevel'=>$path]);
 
         return view(
-            'GameSetting',
+            'gameSetting',
             [
                 'imagePath' => $path
             ]

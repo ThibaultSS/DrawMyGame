@@ -70,6 +70,7 @@ function hexToRgb(hex) {
     };
 
 }
+
 function matchesColor(
     x,
     y,
@@ -119,9 +120,9 @@ function getConnectedShapes(pixels,width,height,colorCheck) {
 
             shape.push({x,y});
             if(shape.length > 100000){
-    console.log("Shape exceeded limit");
-    return shape;
-}
+                console.log("Shape exceeded limit");
+                return shape;
+            }
             stack.push([x+1,y]);
             stack.push([x-1,y]);
             stack.push([x,y+1]);
@@ -285,73 +286,7 @@ const playerColor =
     hexToRgb(
         window.hazardColor
     );
-    /*
-    for (let y = 0; y < source.height; y++) { 
-        let runStart = null; 
-        let runLength = 0; 
-
-        for (let x = 0; x < source.width; x++) {
-            const index = (y * source.width + x) * 4;
-            const r = pixels[index];
-            const g = pixels[index + 1];
-            const b = pixels[index + 2];
-            const a = pixels[index + 3];
-
-            const isBlack = (r < 30 && g < 30 && b < 30 && a > 200);
-
-            if (isBlack) {
-                if (runStart === null) {
-                    runStart = x;
-                    runLength = 1;
-                } else {
-                    runLength++;
-                }
-            } else {
-                if (runStart !== null) {
-                    levelData.push({
-                        x: runStart + runLength / 2,
-                        y: y,
-                        width: runLength,
-                        height: 1
-                    });
-                    runStart = null;
-                    runLength = 0;
-                }
-            }
-        }
-
-        if (runStart !== null) {
-            levelData.push({
-                x: runStart + runLength / 2,
-                y: y,
-                width: runLength,
-                height: 1
-            });
-        }
-    }
-
-    console.log("Platforms created:", levelData.length);
-}
-    */
-   /******************************************
-   const shapes = getConnectedShapes(pixels, source.width, source.height);
-    shapes.forEach(shape => {
-        const xs = shape.map(p => p.x);
-        const ys = shape.map(p => p.y);
-        const minX = Math.min(...xs);
-        const maxX = Math.max(...xs);
-        const minY = Math.min(...ys);
-        const maxY = Math.max(...ys);
-        levelData.push({
-            x: minX + (maxX - minX) / 2,
-            y: minY + (maxY - minY) / 2,
-            width: maxX - minX + 1,
-            height: maxY - minY + 1
-        });
-    });
-
-    console.log("Platforms created:", levelData.length);
-    ****************************************/
+    
    console.log("Starting platform detection");
 
     const shapes =
@@ -431,6 +366,7 @@ const playerShapes =
             y: point.y * scaleY
         }));
     });
+    
     goalOutlines = goalShapes.map(shape => {
         const outline = getOutline(shape);
         const traced = traceOutline(outline);

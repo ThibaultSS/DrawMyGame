@@ -3,13 +3,13 @@
 @section('content')
 
     <style>
-        body{
+        .body-body{
             font-family: Arial, sans-serif;
             text-align: center;
             padding: 20px;
         }
 
-        #levelPreview{
+    #levelPreview{
             max-width: 1000px;
             cursor: crosshair;
         }
@@ -18,7 +18,7 @@
             margin: 10px;
         }
 
-        .selector-group{
+    .selector-group{
     display:inline-flex;
     align-items:center;
     gap:10px;
@@ -54,7 +54,7 @@
     z-index: 1;
 }
     </style>
-
+<div class="body-body">
 <h1>Select Colors</h1>
 <p>Click a button, then click the corresponding color on the image.</p>
 <div id="platformGroup" class="selector-group">
@@ -101,7 +101,7 @@
         Start Game
     </button>
 </form>
-
+</div>
 
 
 <script>
