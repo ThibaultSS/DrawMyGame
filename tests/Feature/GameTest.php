@@ -151,6 +151,87 @@ class GameTest extends TestCase
         $this->assertGuest();
     }
 
+    // 9d. Repeated failures lock the form, so a generic error message cannot just
+    // be brute forced through.
+    public function test_login_is_rate_limited_after_repeated_failures()
+    {
+        User::factory()->create([
+            'email' => 'throttled@example.com',
+            'password' => bcrypt('CorrectPassword123!'),
+        ]);
+
+        foreach (range(1, 5) as $attempt) {
+            $this->post('/login', [
+                'email' => 'throttled@example.com',
+                'password' => 'WrongPassword123!',
+            ])->assertSessionHasErrors(['email' => 'Email or password is incorrect.']);
+        }
+
+        // The sixth is refused before the password is even checked. Sending the
+        // correct one and still being a guest is the proof: the lock is real, not
+        // just a different message.
+        $this->post('/login', [
+            'email' => 'throttled@example.com',
+            'password' => 'CorrectPassword123!',
+        ])->assertSessionHasErrors('email');
+
+        $this->assertGuest();
+    }
+
+    // 9e. After being bounced to the login page, logging in returns you to where
+    // you were going rather than to the home page.
+    public function test_login_returns_the_user_to_the_page_they_asked_for()
+    {
+        $user = User::factory()->create([
+            'email' => 'intended@example.com',
+            'password' => bcrypt('Password123!'),
+        ]);
+
+        $this->get('/account')->assertRedirect('/login');
+
+        $this->post('/login', [
+            'email' => 'intended@example.com',
+            'password' => 'Password123!',
+        ])->assertRedirect('/account');
+
+        $this->assertAuthenticatedAs($user);
+    }
+
+    // 9f. Someone already signed in has no business on the login form.
+    public function test_login_page_redirects_a_user_who_is_already_signed_in()
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)->get('/login')->assertRedirect('/');
+    }
+
+    // 9g. Logging out throws the session away rather than only forgetting the user.
+    public function test_logout_invalidates_the_session()
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->post('/logout')
+            ->assertRedirect('/');
+
+        $this->assertGuest();
+        $this->get('/account')->assertRedirect('/login');
+    }
+
+    // 9h. A one-character password used to be accepted.
+    public function test_registration_rejects_a_password_that_is_too_short()
+    {
+        $this->post('/register', [
+            'username' => 'shortpass',
+            'email' => 'short@example.com',
+            'password' => 'a',
+            'password_confirmation' => 'a',
+        ])->assertSessionHasErrors('password');
+
+        $this->assertDatabaseMissing('users', ['email' => 'short@example.com']);
+        $this->assertGuest();
+    }
+
     // 10. Logged in user can save a drawing
     public function test_user_can_save_drawing()
     {

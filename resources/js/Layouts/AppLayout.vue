@@ -10,7 +10,7 @@
  * Inertia would throw. A plain <a> is a normal browser navigation and just works.
  */
 import { computed } from "vue";
-import { usePage } from "@inertiajs/vue3";
+import { router, usePage } from "@inertiajs/vue3";
 
 const NAV_LINKS = [
     { label: "Home", href: "/" },
@@ -24,6 +24,13 @@ const NAV_LINKS = [
 const user = computed(() => usePage().props.auth.user);
 
 const year = new Date().getFullYear();
+
+// A POST, not a link: logging out changes state, and Inertia sends the CSRF
+// token for us. The route ends in Inertia::location, so the browser lands on the
+// home page with a full visit.
+function logout() {
+    router.post("/logout");
+}
 </script>
 
 <template>
@@ -46,12 +53,22 @@ const year = new Date().getFullYear();
                         {{ link.label }}
                     </a>
 
-                    <a
-                        :href="user ? '/account' : '/login'"
-                        class="flex size-9 items-center justify-center rounded-full bg-sub text-xs font-semibold"
-                        :title="user ? user.username : 'Log in'"
-                    >
-                        {{ user ? user.initials : "?" }}
+                    <template v-if="user">
+                        <a
+                            href="/account"
+                            class="flex size-9 items-center justify-center rounded-full bg-sub text-xs font-semibold"
+                            :title="user.username"
+                        >
+                            {{ user.initials }}
+                        </a>
+
+                        <button type="button" class="hover:underline" @click="logout">
+                            Log out
+                        </button>
+                    </template>
+
+                    <a v-else href="/login" class="hover:underline">
+                        Log in
                     </a>
                 </nav>
 

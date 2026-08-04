@@ -35,7 +35,7 @@ class HandleInertiaRequests extends Middleware
      *
      * @see https://inertiajs.com/shared-data
      *
-     * @return array{auth: array{user: array{id: int, username: string, initials: string}|null}}
+     * @return array{auth: array{user: array{id: int, username: string, initials: string}|null}, flash: array{message: string|null}}
      */
     public function share(Request $request): array
     {
@@ -49,6 +49,11 @@ class HandleInertiaRequests extends Middleware
                     'username' => $user->username,
                     'initials' => mb_strtoupper(mb_substr($user->username, 0, 2)),
                 ] : null,
+            ],
+            // One-shot messages for actions that used to give no feedback at all,
+            // such as publishing or deleting a drawing.
+            'flash' => [
+                'message' => $request->session()->get('message'),
             ],
         ];
     }

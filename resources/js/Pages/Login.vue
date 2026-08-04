@@ -39,23 +39,39 @@ function submitRegister() {
     });
 }
 
-const FIELD_CLASS =
-    "w-full border border-sub px-3 py-2 outline-none focus:border-ink";
+/**
+ * A field in error turns red, border and message both. Everything else on the
+ * page is black on white, so an error rendered in black reads as another label.
+ */
+function fieldClass(error) {
+    return [
+        "mt-1 w-full border px-3 py-2 outline-none",
+        error ? "border-error" : "border-sub focus:border-ink"
+    ];
+}
 </script>
 
 <template>
-    <Head title="Log in" />
+    <Head :title="mode === 'login' ? 'Log in' : 'Create an account'" />
 
     <AppLayout>
         <div class="grid min-h-[32rem] grid-cols-1 md:grid-cols-2">
 
             <!-- Left panel. Hidden on small screens: the form matters, this does not. -->
-            <aside class="hidden bg-ink px-10 py-16 text-page md:flex md:flex-col md:justify-center">
-                <p class="text-3xl font-semibold tracking-tight">DrawMyGame</p>
-                <p class="mt-4 text-lg">Draw a level.<br>Play it.</p>
+            <aside class="hidden bg-ink px-10 py-16 text-page md:flex md:flex-col md:items-center md:justify-center">
+                <div class="w-full max-w-sm">
+                    <p class="text-3xl font-semibold tracking-tight">DrawMyGame</p>
+                    <p class="mt-4 text-lg">Draw a level.<br>Play it.</p>
+                </div>
             </aside>
 
-            <section class="flex flex-col justify-center px-6 py-12 md:px-12">
+            <!--
+                items-center matters: without it the max-w-sm block below stretches
+                from the left edge of its half and the whole page reads as shoved
+                to one side. Both halves centre their content, so the two blocks
+                sit an equal distance from the seam.
+            -->
+            <section class="flex flex-col items-center justify-center px-6 py-12 md:px-12">
                 <div class="w-full max-w-sm">
 
                     <h1 class="text-2xl font-semibold tracking-tight">
@@ -71,9 +87,10 @@ const FIELD_CLASS =
                                 v-model="loginForm.email"
                                 type="email"
                                 autocomplete="email"
+                                autofocus
                                 required
-                                :class="FIELD_CLASS"
-                                class="mt-1"
+                                :class="fieldClass(loginForm.errors.email)"
+                                :aria-invalid="Boolean(loginForm.errors.email)"
                             >
                         </div>
 
@@ -85,8 +102,7 @@ const FIELD_CLASS =
                                 type="password"
                                 autocomplete="current-password"
                                 required
-                                :class="FIELD_CLASS"
-                                class="mt-1"
+                                :class="fieldClass(loginForm.errors.email)"
                             >
                         </div>
 
@@ -94,7 +110,7 @@ const FIELD_CLASS =
                             One message for every failure. The server deliberately does not
                             say whether it was the email or the password that was wrong.
                         -->
-                        <p v-if="loginForm.errors.email" class="text-sm" role="alert">
+                        <p v-if="loginForm.errors.email" class="text-sm text-error" role="alert">
                             {{ loginForm.errors.email }}
                         </p>
 
@@ -118,10 +134,10 @@ const FIELD_CLASS =
                                 type="text"
                                 autocomplete="username"
                                 required
-                                :class="FIELD_CLASS"
-                                class="mt-1"
+                                :class="fieldClass(registerForm.errors.username)"
+                                :aria-invalid="Boolean(registerForm.errors.username)"
                             >
-                            <p v-if="registerForm.errors.username" class="mt-1 text-sm" role="alert">
+                            <p v-if="registerForm.errors.username" class="mt-1 text-sm text-error" role="alert">
                                 {{ registerForm.errors.username }}
                             </p>
                         </div>
@@ -134,10 +150,10 @@ const FIELD_CLASS =
                                 type="email"
                                 autocomplete="email"
                                 required
-                                :class="FIELD_CLASS"
-                                class="mt-1"
+                                :class="fieldClass(registerForm.errors.email)"
+                                :aria-invalid="Boolean(registerForm.errors.email)"
                             >
-                            <p v-if="registerForm.errors.email" class="mt-1 text-sm" role="alert">
+                            <p v-if="registerForm.errors.email" class="mt-1 text-sm text-error" role="alert">
                                 {{ registerForm.errors.email }}
                             </p>
                         </div>
@@ -150,10 +166,10 @@ const FIELD_CLASS =
                                 type="password"
                                 autocomplete="new-password"
                                 required
-                                :class="FIELD_CLASS"
-                                class="mt-1"
+                                :class="fieldClass(registerForm.errors.password)"
+                                :aria-invalid="Boolean(registerForm.errors.password)"
                             >
-                            <p v-if="registerForm.errors.password" class="mt-1 text-sm" role="alert">
+                            <p v-if="registerForm.errors.password" class="mt-1 text-sm text-error" role="alert">
                                 {{ registerForm.errors.password }}
                             </p>
                         </div>
@@ -166,8 +182,7 @@ const FIELD_CLASS =
                                 type="password"
                                 autocomplete="new-password"
                                 required
-                                :class="FIELD_CLASS"
-                                class="mt-1"
+                                :class="fieldClass(registerForm.errors.password)"
                             >
                         </div>
 
