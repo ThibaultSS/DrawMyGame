@@ -14,7 +14,12 @@ export default defineConfig({
                 'resources/js/game.js',
             ],
             refresh: true,
-            buildDirectory: '../../www/build', // point to www/build
+            // Builds go to public/build, which is where Laravel's @vite looks by
+            // default. This used to be '../../www/build' for the deploy host, but
+            // nothing told PHP about it, so the app kept reading a stale
+            // public/build and no build reached the browser. If the host really
+            // needs the assets elsewhere, set it here *and* call
+            // Vite::useBuildDirectory() with the same path so the two agree.
 
             fonts: [
                 bunny('Instrument Sans', {

@@ -3,8 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\User;
-use App\Models\SavedDrawing;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
 
 class GameTest extends TestCase
@@ -60,6 +60,10 @@ class GameTest extends TestCase
 
         $response->assertRedirect('/');
         $this->assertDatabaseHas('users', ['email' => 'test@example.com']);
+
+        // Registering signs you in. Before, it created the account and left you a
+        // guest, having to log in again with credentials typed a second earlier.
+        $this->assertAuthenticated();
     }
 
     // 7. User cannot register with duplicate email
@@ -96,6 +100,8 @@ class GameTest extends TestCase
     }
 
     // 9. User cannot login with wrong password
+    // The error now sits on 'email' rather than 'password': the message is
+    // deliberately generic, so it is no longer tied to which field was wrong.
     public function test_user_cannot_login_with_wrong_password()
     {
         User::factory()->create([
@@ -108,7 +114,40 @@ class GameTest extends TestCase
             'password' => 'WrongPassword123!',
         ]);
 
-        $response->assertSessionHasErrors('password');
+        $response->assertSessionHasErrors('email');
+        $this->assertGuest();
+    }
+
+    // 9b. The login page is served as an Inertia page, not a Blade view
+    public function test_login_page_renders_the_inertia_component()
+    {
+        $response = $this->get('/login');
+
+        $response->assertStatus(200);
+        $response->assertInertia(fn (AssertableInertia $page) => $page->component('Login'));
+    }
+
+    // 9c. A wrong password and an unknown address are indistinguishable, so the
+    // login form cannot be used to find out which emails have an account.
+    public function test_login_failures_do_not_reveal_whether_the_account_exists()
+    {
+        User::factory()->create([
+            'email' => 'known@example.com',
+            'password' => bcrypt('CorrectPassword123!'),
+        ]);
+
+        $message = 'Email or password is incorrect.';
+
+        $this->post('/login', [
+            'email' => 'known@example.com',
+            'password' => 'WrongPassword123!',
+        ])->assertSessionHasErrors(['email' => $message]);
+
+        $this->post('/login', [
+            'email' => 'nobody@example.com',
+            'password' => 'WrongPassword123!',
+        ])->assertSessionHasErrors(['email' => $message]);
+
         $this->assertGuest();
     }
 
