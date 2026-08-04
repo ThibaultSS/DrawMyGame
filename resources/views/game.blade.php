@@ -2,7 +2,7 @@
 @extends('layouts.app')
 @section('title', 'Game')
 @section('content')
-    @vite('resources/js/app.js')
+    @vite('resources/js/game.js')
 
 <script>
 window.levelImage = "{{ asset('storage/' . session('uploadedLevel')) }}";

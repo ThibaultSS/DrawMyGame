@@ -17,6 +17,9 @@
         "vitest": "^4.1.10"
     },
     "dependencies": {
-        "phaser": "^4.1.0"
+        "@inertiajs/vue3": "^3.6.1",
+        "@vitejs/plugin-vue": "^6.0.8",
+        "phaser": "^4.1.0",
+        "vue": "^3.5.40"
     }
 }
