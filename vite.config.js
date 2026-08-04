@@ -8,6 +8,8 @@ export default defineConfig({
         laravel({
             input: ['resources/css/app.css', 'resources/js/app.js'],
             refresh: true,
+            buildDirectory: '../../www/build', // point to www/build
+
             fonts: [
                 bunny('Instrument Sans', {
                     weights: [400, 500, 600],
