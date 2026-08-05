@@ -21,15 +21,28 @@ class GoogleController extends Controller
     {
         $googleUser = Socialite::driver('google')->user();
 
-        $user = User::updateOrCreate(
-            ['email' => $googleUser->email],
-            [
+        $user = User::firstWhere('email', $googleUser->email);
+
+        if ($user) {
+            // Only the link to Google is written. updateOrCreate would have
+            // applied the whole payload to an existing row, so someone who
+            // registered with a password and later signed in with Google had
+            // their password replaced by a random hash and their username
+            // rewritten — locked out of their own account, with no reset flow
+            // to recover through.
+            $user->forceFill(['google_id' => $googleUser->id])->save();
+        } else {
+            $user = User::create([
                 'name' => $googleUser->name,
                 'username' => $this->availableUsername($googleUser),
+                'email' => $googleUser->email,
                 'google_id' => $googleUser->id,
-                'password' => bcrypt(Str::random(24)),
-            ]
-        );
+                // There is no password to log in with; signing in happens
+                // through Google. A random one keeps the column non-null and
+                // unguessable.
+                'password' => bcrypt(Str::random(40)),
+            ]);
+        }
 
         Auth::login($user);
 
@@ -52,14 +65,7 @@ class GoogleController extends Controller
         $username = $base;
         $suffix = 1;
 
-        // Someone signing in again already owns their username, so that one still
-        // counts as free for them.
-        $taken = fn (string $candidate): bool => User::query()
-            ->where('username', $candidate)
-            ->where('email', '!=', $googleUser->email)
-            ->exists();
-
-        while ($taken($username)) {
+        while (User::where('username', $username)->exists()) {
             $username = $base.++$suffix;
         }
 

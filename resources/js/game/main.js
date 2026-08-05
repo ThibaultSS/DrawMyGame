@@ -391,13 +391,27 @@ function create() {
     createObjects(this, hazardOutlines, window.hazardColor.replace("#", "0x"));
     createShapeBodies(this, hazardOutlines, { isStatic: true, isSensor: true }, "hazard");
 
-    document.getElementById("speedSlider")?.addEventListener("input", (e) => {
-        moveSpeed = parseInt(e.target.value);
-    });
+    // The sliders own these numbers. Reading them at startup matters for a
+    // replayed drawing: it arrives with the speed and jump its author saved,
+    // already set on the sliders, and the game has to start from those rather
+    // than the defaults.
+    const speedSlider = document.getElementById("speedSlider");
 
-    document.getElementById("jumpSlider")?.addEventListener("input", (e) => {
-        jumpStrength = parseInt(e.target.value);
-    });
+    if (speedSlider) {
+        moveSpeed = parseInt(speedSlider.value);
+        speedSlider.addEventListener("input", (e) => {
+            moveSpeed = parseInt(e.target.value);
+        });
+    }
+
+    const jumpSlider = document.getElementById("jumpSlider");
+
+    if (jumpSlider) {
+        jumpStrength = parseInt(jumpSlider.value);
+        jumpSlider.addEventListener("input", (e) => {
+            jumpStrength = parseInt(e.target.value);
+        });
+    }
 
     const loadingScreen = document.getElementById("loading-screen");
 

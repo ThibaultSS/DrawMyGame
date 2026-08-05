@@ -17,6 +17,14 @@ class UploadLevelController extends Controller
 
         session(['uploadedLevel' => $path]);
 
+        // A new image invalidates whatever game the session was holding: the
+        // old colours belong to the old picture, and stale ones would let
+        // /game (or a Save there) run this image against them.
+        session()->forget([
+            'platformColor', 'goalColor', 'playerColor', 'hazardColor',
+            'gameSpeed', 'jumpHeight',
+        ]);
+
         return redirect()->route('game-setting');
     }
 }

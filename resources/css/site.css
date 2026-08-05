@@ -1,9 +1,9 @@
 /*
- * Stylesheet for the rebuilt, component-based pages.
+ * The application's only stylesheet.
  *
- * app.css is the old stylesheet and stays only for the Blade views that have not
- * been migrated yet. Nothing is carried over from it: this starts from the house
- * style and grows one component at a time.
+ * Nothing was carried over from the hand-written app.css the Blade views used:
+ * that file is gone, and everything here starts from the house style below.
+ * Page-level styling belongs in the Vue components as Tailwind utilities.
  */
 @import 'tailwindcss';
 

@@ -22,10 +22,20 @@ const props = defineProps({
     platformColor: { type: String, required: true },
     goalColor: { type: String, required: true },
     playerColor: { type: String, required: true },
-    hazardColor: { type: String, required: true }
+    hazardColor: { type: String, required: true },
+    // Where the sliders start: a replayed drawing plays as its author tuned
+    // it, a fresh one starts at the defaults.
+    speed: { type: Number, default: 5 },
+    jumpHeight: { type: Number, default: 10 }
 });
 
 const user = computed(() => usePage().props.auth.user);
+
+// Bound to the sliders. The engine reads the elements' values itself (initial
+// value in create(), changes via input events); these refs exist so the
+// current positions can be saved with the drawing.
+const speedValue = ref(props.speed);
+const jumpValue = ref(props.jumpHeight);
 
 let game = null;
 
@@ -52,8 +62,17 @@ onUnmounted(() => {
 
 /**
  * canvas-confetti stays a CDN script, as it was on the Blade page: it is only
- * ever needed here, and the engine only checks for a global `confetti` function.
+ * ever needed here, and the engine only checks for a global `confetti`
+ * function, so the win popup still works if this never loads.
+ *
+ * The integrity hash is what makes loading a third-party script acceptable:
+ * the browser refuses to run the file unless its bytes hash to exactly this,
+ * so a compromised CDN cannot substitute code that would then run with the
+ * page's own privileges. It pins this exact version — bump both together.
  */
+const CONFETTI_URL = "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js";
+const CONFETTI_INTEGRITY = "sha384-sPwMflxqfAN+Q5mvlkLmHiX3PORGbZSXHiSGPTXT9VHCD/AB+b+r+vJWsqprv+7k";
+
 function loadConfetti() {
     if (typeof window.confetti === "function" || document.getElementById("confetti-script")) {
         return;
@@ -62,7 +81,10 @@ function loadConfetti() {
     const script = document.createElement("script");
 
     script.id = "confetti-script";
-    script.src = "https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.min.js";
+    script.src = CONFETTI_URL;
+    script.integrity = CONFETTI_INTEGRITY;
+    // Required for integrity to be checked on a cross-origin script.
+    script.crossOrigin = "anonymous";
 
     document.head.appendChild(script);
 }
@@ -92,9 +114,10 @@ function retry() {
 const saving = ref(false);
 
 // The controller answers with back() and a flash message, which the layout's
-// FlashToast turns into the "Drawing saved." toast.
+// FlashToast turns into the "Drawing saved." toast. The slider positions go
+// along: they are saved with the drawing, so a replay plays the same.
 function saveDrawing() {
-    router.post("/save-drawing", {}, {
+    router.post("/save-drawing", { speed: speedValue.value, jumpHeight: jumpValue.value }, {
         // preserveState matters: without it Inertia remounts this component and
         // boots a second game over the one that is running.
         preserveState: true,
@@ -138,12 +161,12 @@ function goBack() {
                 </button>
 
                 <label class="flex items-center gap-3">
-                    <input id="speedSlider" type="range" min="1" max="20" value="5" class="accent-ink">
+                    <input id="speedSlider" v-model.number="speedValue" type="range" min="1" max="20" class="accent-ink">
                     Speed
                 </label>
 
                 <label class="flex items-center gap-3">
-                    <input id="jumpSlider" type="range" min="5" max="30" value="10" class="accent-ink">
+                    <input id="jumpSlider" v-model.number="jumpValue" type="range" min="5" max="30" class="accent-ink">
                     Jump Height
                 </label>
 
