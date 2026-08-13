@@ -2,38 +2,81 @@
 /**
  * The upload page: choose an image of a drawing and the level flow starts.
  *
- * The old Blade page submitted the form the moment a file was chosen, and that
- * behaviour is kept on purpose: picking the file is the only decision on this
- * page, so a separate submit button would be a second click that confirms
- * nothing. The form posts to /upload-level, the server redirects to the
- * colour-picking page, and Inertia follows the redirect — there is nothing to
- * handle on success here.
+ * Nothing is uploaded here any more, despite the name. The picture goes into
+ * the browser's level store and the visit moves on to colour picking; the
+ * server is only asked to keep the image if Save is pressed later, which is the
+ * first point at which anyone has said it is worth keeping.
+ *
+ * Choosing the file is still the only decision on this page, so it moves on by
+ * itself — a separate submit button would be a second click that confirms
+ * nothing.
  */
-import { Head, useForm } from "@inertiajs/vue3";
+import { ref } from "vue";
+import { Head, router } from "@inertiajs/vue3";
 
 import AppLayout from "../Layouts/AppLayout.vue";
+import { putLevel } from "../levelStore.js";
 
-const form = useForm({
-    levelImage: null
-});
+// The same ceiling the server applies when the level is finally saved. Checking
+// it now means a file that could never be kept is refused before it is played.
+const MAX_BYTES = 10 * 1024 * 1024;
 
-function upload(event) {
+const error = ref("");
+const busy = ref(false);
+
+async function choose(event) {
     const [file] = event.target.files;
+
+    // Clear the native input straight away: after a rejected file the likely
+    // next step is picking the same one again after fixing it, and an input
+    // that still holds the old value never fires change for the same choice.
+    event.target.value = "";
 
     if (! file) {
         return;
     }
 
-    form.levelImage = file;
+    error.value = "";
+    busy.value = true;
 
-    // Clear the native input before posting. If the server rejects the file,
-    // the likely next step is picking the same file again after fixing it, and
-    // a file input that still holds the old value never fires change for the
-    // same choice.
-    event.target.value = "";
+    const problem = await unusable(file);
 
-    // useForm sees the File and sends the request as multipart by itself.
-    form.post("/upload-level");
+    if (problem) {
+        error.value = problem;
+        busy.value = false;
+
+        return;
+    }
+
+    await putLevel(file);
+
+    router.visit("/game-setting");
+}
+
+/** The reason this file cannot become a level, or an empty string if it can. */
+async function unusable(file) {
+    // SVG is refused for the same reason the server refuses it: it can carry
+    // scripts, so it is not an image in the safe sense.
+    if (file.type === "image/svg+xml") {
+        return "SVG files cannot be used as levels. Try a PNG or a JPG.";
+    }
+
+    if (file.size > MAX_BYTES) {
+        return "That image is larger than 10 MB.";
+    }
+
+    // The real requirement is that the browser can decode it, since the game
+    // reads the pixels itself. That is a truer test than trusting the file's
+    // type, and it catches a truncated download as well as a renamed PDF.
+    try {
+        const bitmap = await createImageBitmap(file);
+
+        bitmap.close();
+    } catch {
+        return "That file could not be opened as an image.";
+    }
+
+    return "";
 }
 </script>
 
@@ -52,37 +95,36 @@ function upload(event) {
             -->
             <label
                 class="mt-8 flex flex-col items-center justify-center gap-3 border-2 border-dashed border-sub px-6 py-24 text-center focus-within:border-ink"
-                :class="form.processing ? 'opacity-50' : 'cursor-pointer hover:border-ink'"
+                :class="busy ? 'opacity-50' : 'cursor-pointer hover:border-ink'"
             >
                 <!--
-                    Disabled while uploading: a disabled input does not open the
-                    picker, so a second file cannot be chosen mid-upload.
+                    Disabled while a file is being read: a disabled input does
+                    not open the picker, so a second file cannot be chosen
+                    halfway through the first.
                 -->
                 <input
                     type="file"
                     accept="image/*"
                     class="sr-only"
-                    :disabled="form.processing"
-                    @change="upload"
+                    :disabled="busy"
+                    @change="choose"
                 >
 
                 <span class="text-lg font-medium">
                     Choose an image of your drawing
                 </span>
 
-                <span v-if="form.processing" class="text-sm" role="status">
-                    Uploading…
-                    <!-- percentage can be briefly unknown; a bare "%" reads as broken. -->
-                    <template v-if="form.progress?.percentage != null">{{ form.progress.percentage }}%</template>
+                <span v-if="busy" class="text-sm" role="status">
+                    Opening your drawing…
                 </span>
 
                 <span v-else class="text-sm">
-                    The upload starts as soon as you pick one.
+                    It opens as soon as you pick one. Nothing is uploaded until you save it.
                 </span>
             </label>
 
-            <p v-if="form.errors.levelImage" class="mt-3 text-sm text-error" role="alert">
-                {{ form.errors.levelImage }}
+            <p v-if="error" class="mt-3 text-sm text-error" role="alert">
+                {{ error }}
             </p>
 
         </div>

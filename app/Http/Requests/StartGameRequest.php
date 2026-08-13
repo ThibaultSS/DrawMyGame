@@ -12,9 +12,12 @@ class StartGameRequest extends FormRequest
     }
 
     /**
-     * The engine cannot build a level without all four colours: the old form
-     * let an empty submit through and the game silently broke on the first
-     * missing hex value.
+     * Three colours make a level: something to stand on, somewhere to get to,
+     * and someone to move. The old form let an empty submit through and the
+     * game silently broke on the first missing hex value.
+     *
+     * Hazards are optional — a level with nothing dangerous in it is still a
+     * level, and demanding one meant inventing a danger to get past this page.
      *
      * @return array<string, array<int, string>>
      */
@@ -24,7 +27,7 @@ class StartGameRequest extends FormRequest
             'platformColor' => ['required', 'regex:/^#[0-9a-f]{6}$/i'],
             'goalColor' => ['required', 'regex:/^#[0-9a-f]{6}$/i'],
             'playerColor' => ['required', 'regex:/^#[0-9a-f]{6}$/i'],
-            'hazardColor' => ['required', 'regex:/^#[0-9a-f]{6}$/i'],
+            'hazardColor' => ['nullable', 'regex:/^#[0-9a-f]{6}$/i'],
         ];
     }
 }

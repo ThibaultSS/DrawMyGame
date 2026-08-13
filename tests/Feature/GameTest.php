@@ -63,7 +63,7 @@ class GameTest extends TestCase
             ->has('drawings.data', 1)
             ->has('drawings.data.0', fn (AssertableInertia $drawing) => $drawing
                 ->where('author', $author->username)
-                ->hasAll(['id', 'image'])
+                ->hasAll(['id', 'image', 'title', 'description', 'likes', 'dislikes'])
             )
         );
     }
@@ -112,8 +112,9 @@ class GameTest extends TestCase
             ->assertInertia(fn (AssertableInertia $page) => $page->has('drawings.data', 1));
     }
 
-    // 5c. Publishing reports back instead of silently reloading the page
-    public function test_user_can_toggle_publish_on_their_own_drawing()
+    // 5c. Publishing and unpublishing report back instead of silently reloading
+    // the page. The details live with the publish; see CommunityTest for those.
+    public function test_user_can_publish_and_unpublish_their_own_drawing()
     {
         $user = User::factory()->create();
         $drawing = SavedDrawing::create([
@@ -122,13 +123,13 @@ class GameTest extends TestCase
         ]);
 
         $this->actingAs($user)
-            ->post("/drawing/{$drawing->id}/publish")
+            ->post("/drawing/{$drawing->id}/publish", ['title' => 'My level'])
             ->assertSessionHas('message', 'Drawing published.');
 
         $this->assertTrue($drawing->fresh()->published);
 
         $this->actingAs($user)
-            ->post("/drawing/{$drawing->id}/publish")
+            ->post("/drawing/{$drawing->id}/unpublish")
             ->assertSessionHas('message', 'Drawing unpublished.');
 
         $this->assertFalse($drawing->fresh()->published);
@@ -162,7 +163,10 @@ class GameTest extends TestCase
             'image_path' => 'levels/theirs.jpg',
         ]);
 
-        $this->actingAs($user)->post("/drawing/{$drawing->id}/publish")->assertNotFound();
+        $this->actingAs($user)
+            ->post("/drawing/{$drawing->id}/publish", ['title' => 'Not mine'])
+            ->assertNotFound();
+        $this->actingAs($user)->post("/drawing/{$drawing->id}/unpublish")->assertNotFound();
         $this->actingAs($user)->delete("/drawing/{$drawing->id}")->assertNotFound();
 
         $this->assertFalse($drawing->fresh()->published);
@@ -352,29 +356,31 @@ class GameTest extends TestCase
         $this->assertGuest();
     }
 
-    // 10. Logged in user can save a drawing — and the whole game goes with it:
-    // the session's colours plus the slider positions posted along
+    // 10. Logged in user can save a drawing. This is where the level image
+    // finally reaches the server — the browser held it until now — and the whole
+    // game goes with it: the session's colours plus the slider positions.
     public function test_user_can_save_drawing()
     {
         Storage::fake('local');
-        Storage::disk('local')->put('levels/test.jpg', 'image-bytes');
 
         $user = User::factory()->create();
 
         $this->actingAs($user)
             ->withSession([
-                'uploadedLevel' => 'levels/test.jpg',
                 'platformColor' => '#ff0000',
                 'goalColor' => '#00ff00',
                 'playerColor' => '#0000ff',
                 'hazardColor' => '#000000',
             ])
-            ->post('/save-drawing', ['speed' => 12, 'jumpHeight' => 22])
+            ->post('/save-drawing', [
+                'levelImage' => UploadedFile::fake()->image('level.png'),
+                'speed' => 12,
+                'jumpHeight' => 22,
+            ])
             ->assertSessionHas('message', 'Drawing saved.');
 
         $this->assertDatabaseHas('saved_drawings', [
             'user_id' => $user->id,
-            'image_path' => 'levels/test.jpg',
             'platform_color' => '#ff0000',
             'goal_color' => '#00ff00',
             'player_color' => '#0000ff',
@@ -382,6 +388,8 @@ class GameTest extends TestCase
             'speed' => 12,
             'jump_height' => 22,
         ]);
+
+        Storage::disk('local')->assertExists(SavedDrawing::firstOrFail()->image_path);
     }
 
     // 10b. Slider values outside the sliders' own range never came from the
@@ -389,78 +397,99 @@ class GameTest extends TestCase
     public function test_saving_rejects_out_of_range_settings()
     {
         Storage::fake('local');
-        Storage::disk('local')->put('levels/test.jpg', 'image-bytes');
 
         $this->actingAs(User::factory()->create())
-            ->withSession(['uploadedLevel' => 'levels/test.jpg'])
-            ->post('/save-drawing', ['speed' => 99, 'jumpHeight' => 22])
+            ->post('/save-drawing', [
+                'levelImage' => UploadedFile::fake()->image('level.png'),
+                'speed' => 99,
+                'jumpHeight' => 22,
+            ])
             ->assertSessionHasErrors('speed');
     }
 
-    // 11. Uploading a level stores the file on the private disk, remembers it
-    // in the session, and moves on to colour picking
-    public function test_uploading_a_level_moves_on_to_colour_picking()
+    // 10c. The defining behaviour of the whole flow: playing a level never puts
+    // it on the server. Only saving does.
+    public function test_a_level_is_not_stored_until_it_is_saved()
     {
         Storage::fake('local');
 
-        $response = $this->post('/upload-level', [
-            'levelImage' => UploadedFile::fake()->image('level.png'),
+        $this->post('/start-game', [
+            'platformColor' => '#ff0000',
+            'goalColor' => '#00ff00',
+            'playerColor' => '#0000ff',
+            'hazardColor' => '#000000',
+        ])->assertRedirect('/game');
+
+        // The game page renders and hands the engine its colours without the
+        // server ever having seen the picture.
+        $this->get('/game')->assertOk();
+
+        $this->assertCount(0, Storage::disk('local')->files('levels'));
+    }
+
+    // 11. Saving without a file, and without naming a drawing the server
+    // already has, is rejected instead of crashing on ->store()
+    public function test_saving_nothing_is_rejected()
+    {
+        $this->actingAs(User::factory()->create())
+            ->post('/save-drawing', ['speed' => 5, 'jumpHeight' => 10])
+            ->assertSessionHasErrors('levelImage');
+    }
+
+    // 11b. The mime check looks at the content, so a PDF with any name is not
+    // an image
+    public function test_saving_a_non_image_is_rejected()
+    {
+        Storage::fake('local');
+
+        $this->actingAs(User::factory()->create())
+            ->post('/save-drawing', [
+                'levelImage' => UploadedFile::fake()->create('level.pdf', 100, 'application/pdf'),
+                'speed' => 5,
+                'jumpHeight' => 10,
+            ])
+            ->assertSessionHasErrors('levelImage');
+    }
+
+    // 11c. Images above the size cap are refused
+    public function test_saving_an_oversized_image_is_rejected()
+    {
+        Storage::fake('local');
+
+        $this->actingAs(User::factory()->create())
+            ->post('/save-drawing', [
+                'levelImage' => UploadedFile::fake()->image('level.png')->size(10 * 1024 + 1),
+                'speed' => 5,
+                'jumpHeight' => 10,
+            ])
+            ->assertSessionHasErrors('levelImage');
+    }
+
+    // 12. A level the browser is holding gives the colour picker nothing to
+    // serve: the page finds the picture in its own level store
+    public function test_game_setting_page_has_no_image_for_a_browser_held_level()
+    {
+        $this->get('/game-setting')->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('GameSetting')
+            ->where('image', null)
+        );
+    }
+
+    // 12b. Replaying a drawing saved before the settings columns existed is the
+    // one case that still arrives here with an image the server has to serve
+    public function test_game_setting_page_shows_a_replayed_drawings_image()
+    {
+        $legacy = SavedDrawing::factory()->published()->create([
+            'user_id' => User::factory()->create()->id,
         ]);
 
-        $response->assertRedirect('/game-setting');
-        $response->assertSessionHas('uploadedLevel');
-
-        Storage::disk('local')->assertExists(session('uploadedLevel'));
-    }
-
-    // 11b. An upload without a file is rejected instead of crashing on ->store()
-    public function test_uploading_nothing_is_rejected()
-    {
-        $this->post('/upload-level')->assertSessionHasErrors('levelImage');
-    }
-
-    // 11c. The mime check looks at the content, so a PDF with any name is not
-    // an image
-    public function test_uploading_a_non_image_is_rejected()
-    {
-        Storage::fake('local');
-
-        $this->post('/upload-level', [
-            'levelImage' => UploadedFile::fake()->create('level.pdf', 100, 'application/pdf'),
-        ])->assertSessionHasErrors('levelImage');
-    }
-
-    // 11d. Uploads above the size cap are refused
-    public function test_uploading_an_oversized_image_is_rejected()
-    {
-        Storage::fake('local');
-
-        $this->post('/upload-level', [
-            'levelImage' => UploadedFile::fake()->image('level.png')->size(10 * 1024 + 1),
-        ])->assertSessionHasErrors('levelImage');
-    }
-
-    // 12. The colour-picking page needs an uploaded level to show; without one
-    // the flow starts over
-    public function test_game_setting_page_requires_an_uploaded_level()
-    {
-        $this->get('/game-setting')->assertRedirect('/upload');
-    }
-
-    public function test_game_setting_page_shows_the_uploaded_level()
-    {
-        Storage::fake('local');
-        Storage::disk('local')->put('levels/test.jpg', 'image-bytes');
-
-        $response = $this->withSession(['uploadedLevel' => 'levels/test.jpg'])
-            ->get('/game-setting');
+        $this->get("/play/{$legacy->id}")->assertRedirect('/game-setting');
 
         // The image URL points at the serving route, not at public storage:
         // the file itself lives on the private disk.
-        $response->assertStatus(200);
-        $response->assertInertia(fn (AssertableInertia $page) => $page
+        $this->get('/game-setting')->assertInertia(fn (AssertableInertia $page) => $page
             ->component('GameSetting')
-            ->where('image', route('uploaded-level'))
+            ->where('image', route('drawings.image', $legacy))
         );
     }
 
@@ -481,26 +510,54 @@ class GameTest extends TestCase
         $response->assertSessionHas('hazardColor', '#000000');
     }
 
-    // 13b. All four colours are required: the engine cannot build a level from a
-    // partial set, which the old form allowed
-    public function test_start_game_requires_all_four_colours()
+    // 13b. Three colours are required — something to stand on, somewhere to get
+    // to and someone to move. The old form let an empty submit through.
+    public function test_start_game_requires_the_three_essential_colours()
     {
         $this->post('/start-game')->assertSessionHasErrors([
             'platformColor',
             'goalColor',
             'playerColor',
-            'hazardColor',
         ]);
     }
 
-    // 14. The game page hands the engine everything it needs as props
-    public function test_game_page_renders_with_the_level_and_colours()
+    // 13c. A hazard is not one of them: a level with nothing dangerous in it is
+    // still a level, and demanding one meant inventing a danger to get past the
+    // colour picker
+    public function test_start_game_works_without_a_hazard()
     {
-        Storage::fake('local');
-        Storage::disk('local')->put('levels/test.jpg', 'image-bytes');
+        $this->post('/start-game', [
+            'platformColor' => '#ff0000',
+            'goalColor' => '#00ff00',
+            'playerColor' => '#0000ff',
+        ])->assertRedirect('/game');
 
+        $this->get('/game')->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('Game')
+            ->where('hazardColor', null)
+            ->etc()
+        );
+    }
+
+    // 13d. And the hazard from an earlier level must not linger into one that
+    // has none — validated() leaves out a key that was never sent
+    public function test_starting_a_game_without_a_hazard_clears_the_previous_one()
+    {
+        $this->withSession(['hazardColor' => '#ff0000'])
+            ->post('/start-game', [
+                'platformColor' => '#ff0000',
+                'goalColor' => '#00ff00',
+                'playerColor' => '#0000ff',
+            ])
+            ->assertRedirect('/game')
+            ->assertSessionMissing('hazardColor');
+    }
+
+    // 14. The game page hands the engine its colours, and no image at all: the
+    // browser has the picture, so there is nothing for the server to point at
+    public function test_game_page_renders_with_the_colours_and_no_server_image()
+    {
         $response = $this->withSession([
-            'uploadedLevel' => 'levels/test.jpg',
             'platformColor' => '#ff0000',
             'goalColor' => '#00ff00',
             'playerColor' => '#0000ff',
@@ -510,7 +567,8 @@ class GameTest extends TestCase
         $response->assertStatus(200);
         $response->assertInertia(fn (AssertableInertia $page) => $page
             ->component('Game')
-            ->where('levelImage', route('uploaded-level'))
+            ->where('levelImage', null)
+            ->where('drawingId', null)
             ->where('platformColor', '#ff0000')
             ->where('goalColor', '#00ff00')
             ->where('playerColor', '#0000ff')
@@ -518,13 +576,36 @@ class GameTest extends TestCase
         );
     }
 
-    // 14b. Without a complete session there is nothing to build, so the game
-    // page starts the flow over instead of booting a broken game
+    // 14b. A saved drawing is the one level the server does serve, and it comes
+    // with its id so that pressing Save updates it instead of duplicating it
+    public function test_game_page_serves_a_replayed_drawings_image()
+    {
+        $drawing = SavedDrawing::factory()->published()->create([
+            'user_id' => User::factory()->create()->id,
+            'platform_color' => '#ff0000',
+            'goal_color' => '#00ff00',
+            'player_color' => '#0000ff',
+            'hazard_color' => '#000000',
+        ]);
+
+        $this->get("/play/{$drawing->id}")->assertRedirect('/game');
+
+        $this->get('/game')->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('Game')
+            ->where('levelImage', route('drawings.image', $drawing))
+            ->where('drawingId', $drawing->id)
+            ->etc()
+        );
+    }
+
+    // 14c. Without the colours there is nothing to build, so the game page
+    // starts the flow over instead of booting a broken game
     public function test_game_page_requires_the_full_session()
     {
         $this->get('/game')->assertRedirect('/upload');
 
-        $this->withSession(['uploadedLevel' => 'levels/test.jpg'])
+        // A partial set is no better than none.
+        $this->withSession(['platformColor' => '#ff0000'])
             ->get('/game')
             ->assertRedirect('/upload');
     }
@@ -542,7 +623,7 @@ class GameTest extends TestCase
         $response = $this->get("/play/{$drawing->id}");
 
         $response->assertRedirect('/game-setting');
-        $response->assertSessionHas('uploadedLevel', 'levels/mine.jpg');
+        $response->assertSessionHas('replayDrawingId', $drawing->id);
     }
 
     // 15a. A drawing saved with its game settings skips colour picking and
@@ -563,7 +644,7 @@ class GameTest extends TestCase
         $response = $this->get("/play/{$drawing->id}");
 
         $response->assertRedirect('/game');
-        $response->assertSessionHas('uploadedLevel', $drawing->image_path);
+        $response->assertSessionHas('replayDrawingId', $drawing->id);
         $response->assertSessionHas('platformColor', '#ff0000');
         $response->assertSessionHas('gameSpeed', 15);
         $response->assertSessionHas('jumpHeight', 25);
@@ -572,11 +653,7 @@ class GameTest extends TestCase
     // 15a-2. The game page then hands those to the engine as props
     public function test_game_page_passes_the_saved_speed_and_jump()
     {
-        Storage::fake('local');
-        Storage::disk('local')->put('levels/test.jpg', 'image-bytes');
-
         $this->withSession([
-            'uploadedLevel' => 'levels/test.jpg',
             'platformColor' => '#ff0000',
             'goalColor' => '#00ff00',
             'playerColor' => '#0000ff',
@@ -616,7 +693,7 @@ class GameTest extends TestCase
         $legacy = SavedDrawing::factory()->published()->create(['user_id' => $user->id]);
 
         $this->withSession([
-            'uploadedLevel' => 'levels/old.jpg',
+            'replayDrawingId' => 999,
             'platformColor' => '#ff0000',
             'goalColor' => '#00ff00',
             'playerColor' => '#0000ff',
@@ -625,28 +702,26 @@ class GameTest extends TestCase
             'jumpHeight' => 25,
         ])->get("/play/{$legacy->id}")
             ->assertRedirect('/game-setting')
-            ->assertSessionHas('uploadedLevel', $legacy->image_path)
+            ->assertSessionHas('replayDrawingId', $legacy->id)
             ->assertSessionMissing('platformColor')
             ->assertSessionMissing('gameSpeed')
             ->assertSessionMissing('jumpHeight');
     }
 
-    // 15a-5. A fresh upload does the same
-    public function test_uploading_clears_the_previous_games_session()
+    // 15a-5. Starting a fresh game forgets which drawing was being replayed.
+    // Without this, saving a level the browser is holding would quietly update
+    // whichever drawing was played last — someone else's, even.
+    public function test_starting_a_fresh_game_stops_replaying_the_previous_drawing()
     {
-        Storage::fake('local');
-
-        $this->withSession([
-            'platformColor' => '#ff0000',
-            'goalColor' => '#00ff00',
-            'playerColor' => '#0000ff',
-            'hazardColor' => '#000000',
-            'gameSpeed' => 15,
-        ])->post('/upload-level', [
-            'levelImage' => UploadedFile::fake()->image('level.png'),
-        ])->assertRedirect('/game-setting')
-            ->assertSessionMissing('platformColor')
-            ->assertSessionMissing('gameSpeed');
+        $this->withSession(['replayDrawingId' => 42])
+            ->post('/start-game', [
+                'platformColor' => '#ff0000',
+                'goalColor' => '#00ff00',
+                'playerColor' => '#0000ff',
+                'hazardColor' => '#000000',
+            ])
+            ->assertRedirect('/game')
+            ->assertSessionMissing('replayDrawingId');
     }
 
     // 15a-6. Re-saving your own drawing updates it in place — new feel, same
@@ -668,16 +743,43 @@ class GameTest extends TestCase
         ]);
         Storage::disk('local')->put($drawing->image_path, 'image-bytes');
 
-        // Replay it, then save with a different feel.
+        // Replay it, then save with a different feel. The page knows which
+        // drawing it is showing, so it says so rather than sending the image
+        // back up again.
         $this->actingAs($user)->get("/play/{$drawing->id}");
         $this->actingAs($user)
-            ->post('/save-drawing', ['speed' => 18, 'jumpHeight' => 28])
+            ->post('/save-drawing', [
+                'drawingId' => $drawing->id,
+                'speed' => 18,
+                'jumpHeight' => 28,
+            ])
             ->assertSessionHas('message', 'Drawing updated.');
 
         $this->assertSame(1, SavedDrawing::count());
         $this->assertSame(18, $drawing->fresh()->speed);
         $this->assertSame(28, $drawing->fresh()->jump_height);
         $this->assertCount(1, Storage::disk('local')->files('levels'));
+    }
+
+    // 15a-7. A level saved without a hazard is complete, so replaying it starts
+    // immediately instead of being sent back through colour picking
+    public function test_a_drawing_without_a_hazard_still_replays_instantly()
+    {
+        $drawing = SavedDrawing::factory()->published()->create([
+            'user_id' => User::factory()->create()->id,
+            'platform_color' => '#ff0000',
+            'goal_color' => '#00ff00',
+            'player_color' => '#0000ff',
+            'hazard_color' => null,
+        ]);
+
+        $this->get("/play/{$drawing->id}")->assertRedirect('/game');
+
+        $this->get('/game')->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('Game')
+            ->where('hazardColor', null)
+            ->etc()
+        );
     }
 
     // 15b. An unpublished drawing can still be replayed by its owner
@@ -751,20 +853,6 @@ class GameTest extends TestCase
         $this->actingAs($owner)->get("/drawings/{$drawing->id}/image")->assertOk();
     }
 
-    // 16c. The in-session upload is served to the session that owns it, and to
-    // nobody without one
-    public function test_the_uploaded_level_image_belongs_to_the_session()
-    {
-        Storage::fake('local');
-        Storage::disk('local')->put('levels/session.jpg', 'image-bytes');
-
-        $this->get('/uploaded-level')->assertNotFound();
-
-        $this->withSession(['uploadedLevel' => 'levels/session.jpg'])
-            ->get('/uploaded-level')
-            ->assertOk();
-    }
-
     // 17. Deleting a drawing also removes its file from disk
     public function test_deleting_a_drawing_removes_its_image_file()
     {
@@ -798,11 +886,23 @@ class GameTest extends TestCase
             'user_id' => $owner->id,
             'image_path' => 'levels/theirs.jpg',
             'published' => true,
+            'platform_color' => '#ff0000',
+            'goal_color' => '#00ff00',
+            'player_color' => '#0000ff',
+            'hazard_color' => '#000000',
+            'speed' => 5,
+            'jump_height' => 10,
         ]);
 
-        // Play the published level, then save it.
+        // Play the published level, then save it. The server already has that
+        // image, so the browser names the drawing rather than uploading a file
+        // it never held.
         $this->actingAs($otherUser)->get("/play/{$original->id}");
-        $this->actingAs($otherUser)->post('/save-drawing', ['speed' => 5, 'jumpHeight' => 10]);
+        $this->actingAs($otherUser)->post('/save-drawing', [
+            'drawingId' => $original->id,
+            'speed' => 5,
+            'jumpHeight' => 10,
+        ]);
 
         $copy = SavedDrawing::where('user_id', $otherUser->id)->firstOrFail();
 
@@ -817,22 +917,33 @@ class GameTest extends TestCase
         Storage::disk('local')->assertExists($copy->image_path);
     }
 
-    // 17c. Saving your own upload keeps the file it was uploaded to
-    public function test_saving_your_own_upload_does_not_copy_the_file()
+    // 17c. After a save the game page comes back knowing which drawing it is
+    // now showing, so pressing Save again updates that drawing rather than
+    // storing a second copy of the same level
+    public function test_saving_turns_the_page_into_a_replay_of_the_new_drawing()
     {
         Storage::fake('local');
-        Storage::disk('local')->put('levels/mine.jpg', 'image-bytes');
 
         $user = User::factory()->create();
 
         $this->actingAs($user)
-            ->withSession(['uploadedLevel' => 'levels/mine.jpg'])
-            ->post('/save-drawing', ['speed' => 5, 'jumpHeight' => 10]);
+            ->withSession([
+                'platformColor' => '#ff0000',
+                'goalColor' => '#00ff00',
+                'playerColor' => '#0000ff',
+                'hazardColor' => '#000000',
+            ])
+            ->post('/save-drawing', [
+                'levelImage' => UploadedFile::fake()->image('level.png'),
+                'speed' => 5,
+                'jumpHeight' => 10,
+            ]);
 
-        $this->assertDatabaseHas('saved_drawings', [
-            'user_id' => $user->id,
-            'image_path' => 'levels/mine.jpg',
-        ]);
+        $drawing = SavedDrawing::firstOrFail();
+
+        $this->actingAs($user)->get('/game')->assertInertia(
+            fn (AssertableInertia $page) => $page->where('drawingId', $drawing->id)->etc()
+        );
     }
 
     // 18. A drawing id that is not a number is a 404, not a 500 that would show
@@ -876,81 +987,147 @@ class GameTest extends TestCase
         );
     }
 
-    // 20. A level whose file is gone restarts the flow instead of showing a
-    // broken eyedropper or booting the engine against a missing image
-    public function test_a_missing_level_file_sends_you_back_to_upload()
+    // 20. A drawing that stops being playable while someone is on it restarts
+    // the flow, instead of booting the engine against an image that 404s
+    public function test_a_level_that_is_no_longer_available_sends_you_back_to_upload()
+    {
+        $drawing = SavedDrawing::factory()->published()->create([
+            'user_id' => User::factory()->create()->id,
+            'platform_color' => '#ff0000',
+            'goal_color' => '#00ff00',
+            'player_color' => '#0000ff',
+            'hazard_color' => '#000000',
+        ]);
+
+        $this->get("/play/{$drawing->id}")->assertRedirect('/game');
+
+        // The owner unpublishes it while someone else is playing.
+        $drawing->update(['published' => false]);
+
+        $this->get('/game')
+            ->assertRedirect('/upload')
+            ->assertSessionHas('message', 'That level is no longer available.');
+    }
+
+    // 21. Saving is throttled: it is the one route that accepts a file, and
+    // each accepted one costs disk
+    public function test_saving_is_rate_limited()
     {
         Storage::fake('local');
 
-        $this->withSession(['uploadedLevel' => 'levels/gone.jpg'])
-            ->get('/game-setting')
-            ->assertRedirect('/upload');
-
-        $this->withSession([
-            'uploadedLevel' => 'levels/gone.jpg',
+        $this->actingAs(User::factory()->create())->withSession([
             'platformColor' => '#ff0000',
             'goalColor' => '#00ff00',
             'playerColor' => '#0000ff',
             'hazardColor' => '#000000',
-        ])->get('/game')->assertRedirect('/upload');
-    }
-
-    // 21. Uploads are throttled: they need no account and each one costs disk
-    public function test_uploading_is_rate_limited()
-    {
-        Storage::fake('local');
+        ]);
 
         foreach (range(1, 20) as $attempt) {
-            $this->post('/upload-level', [
+            $this->post('/save-drawing', [
                 'levelImage' => UploadedFile::fake()->image("level{$attempt}.png"),
-            ])->assertRedirect('/game-setting');
+                'speed' => 5,
+                'jumpHeight' => 10,
+            ])->assertStatus(302);
         }
 
-        $this->post('/upload-level', [
+        // The twenty really were saved, so the limit is what stops the next one
+        // rather than a validation error that would 302 just the same.
+        $this->assertSame(20, SavedDrawing::count());
+
+        $this->post('/save-drawing', [
             'levelImage' => UploadedFile::fake()->image('level21.png'),
+            'speed' => 5,
+            'jumpHeight' => 10,
         ])->assertStatus(429);
     }
 
-    // 24. The Draw page carries the palette the server will match against
+    // 21b. A drawingId is just a number from the page, so it buys nothing that
+    // opening the drawing would not: one you may not play is a 404
+    public function test_saving_cannot_name_a_drawing_you_may_not_play()
+    {
+        Storage::fake('local');
+
+        $unpublished = SavedDrawing::factory()->create([
+            'user_id' => User::factory()->create()->id,
+        ]);
+
+        $this->actingAs(User::factory()->create())
+            ->withSession([
+                'platformColor' => '#ff0000',
+                'goalColor' => '#00ff00',
+                'playerColor' => '#0000ff',
+                'hazardColor' => '#000000',
+            ])
+            ->post('/save-drawing', [
+                'drawingId' => $unpublished->id,
+                'speed' => 5,
+                'jumpHeight' => 10,
+            ])
+            ->assertNotFound();
+
+        $this->assertSame(1, SavedDrawing::count());
+    }
+
+    // 24. The Draw page carries the exact palette it paints with, which is what
+    // it will hand to /start-game
     public function test_draw_page_renders_with_the_palette()
     {
         $this->get('/draw')->assertInertia(fn (AssertableInertia $page) => $page
             ->component('Draw')
-            ->hasAll(['palette.platform', 'palette.goal', 'palette.player', 'palette.hazard'])
+            ->where('palette.platform', '#000000')
+            ->where('palette.goal', '#00aa00')
+            ->where('palette.player', '#0000ff')
+            ->where('palette.hazard', '#ff0000')
         );
     }
 
-    // 24b. Submitting a drawn level stores it, fills the whole session in one
-    // go — the palette is fixed, so no colour picking — and starts the game
-    public function test_a_drawn_level_goes_straight_to_the_game()
+    // 24b. A drawn level skips colour picking — the palette is fixed, so those
+    // values go straight to the endpoint the eyedropper posts to — and the
+    // canvas stays in the browser like any other level
+    public function test_a_drawn_level_starts_the_game_without_colour_picking()
     {
         Storage::fake('local');
 
-        $response = $this->post('/draw-level', [
-            'levelImage' => UploadedFile::fake()->image('drawing.png'),
-        ]);
+        $this->post('/start-game', [
+            'platformColor' => '#000000',
+            'goalColor' => '#00aa00',
+            'playerColor' => '#0000ff',
+            'hazardColor' => '#ff0000',
+        ])->assertRedirect('/game');
 
-        $response->assertRedirect('/game');
-        $response->assertSessionHas('uploadedLevel');
-        $response->assertSessionHas('platformColor', '#000000');
-        $response->assertSessionHas('goalColor', '#00aa00');
-        $response->assertSessionHas('playerColor', '#0000ff');
-        $response->assertSessionHas('hazardColor', '#ff0000');
+        $this->get('/game')->assertInertia(fn (AssertableInertia $page) => $page
+            ->component('Game')
+            ->where('platformColor', '#000000')
+            ->where('hazardColor', '#ff0000')
+            ->where('levelImage', null)
+            ->etc()
+        );
 
-        Storage::disk('local')->assertExists(session('uploadedLevel'));
+        $this->assertCount(0, Storage::disk('local')->files('levels'));
     }
 
-    // 24b-2. Drawing and registering do not share a throttle bucket: five
-    // draws in a minute must not lock the registration form
-    public function test_drawing_levels_does_not_throttle_registration()
+    // 24b-2. Saving and registering do not share a throttle bucket: filling the
+    // save limit must not lock the registration form
+    public function test_saving_does_not_throttle_registration()
     {
         Storage::fake('local');
 
-        foreach (range(1, 5) as $attempt) {
-            $this->post('/draw-level', [
-                'levelImage' => UploadedFile::fake()->image("drawing{$attempt}.png"),
-            ])->assertRedirect('/game');
+        $this->actingAs(User::factory()->create())->withSession([
+            'platformColor' => '#ff0000',
+            'goalColor' => '#00ff00',
+            'playerColor' => '#0000ff',
+            'hazardColor' => '#000000',
+        ]);
+
+        foreach (range(1, 20) as $attempt) {
+            $this->post('/save-drawing', [
+                'levelImage' => UploadedFile::fake()->image("level{$attempt}.png"),
+                'speed' => 5,
+                'jumpHeight' => 10,
+            ]);
         }
+
+        $this->post('/logout');
 
         $this->post('/register', [
             'username' => 'drawer',
@@ -960,16 +1137,6 @@ class GameTest extends TestCase
         ])->assertRedirect('/');
 
         $this->assertAuthenticated();
-    }
-
-    // 24c. The drawn canvas is validated like any other upload
-    public function test_a_drawn_level_must_be_an_image()
-    {
-        Storage::fake('local');
-
-        $this->post('/draw-level', [
-            'levelImage' => UploadedFile::fake()->create('drawing.pdf', 100, 'application/pdf'),
-        ])->assertSessionHasErrors('levelImage');
     }
 
     // 23. Signing in with Google creates an account the first time

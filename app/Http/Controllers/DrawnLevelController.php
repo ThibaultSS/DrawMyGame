@@ -2,8 +2,6 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Requests\UploadLevelRequest;
-use Illuminate\Http\RedirectResponse;
 use Inertia\Inertia;
 use Inertia\Response;
 
@@ -11,10 +9,9 @@ class DrawnLevelController extends Controller
 {
     /**
      * The colours the Draw page paints with, and therefore the colours the
-     * engine is told to look for. One source of truth: the page renders its
-     * buttons from this array (passed as a prop), and store() writes the same
-     * values into the session — which is why a drawn level can skip the
-     * eyedropper step entirely.
+     * engine is told to look for. The page renders its buttons from this array
+     * and posts these same values to /start-game, which is why a drawn level
+     * needs no eyedropper.
      *
      * They are far apart in RGB on purpose: the detector matches colours with
      * a tolerance of 70, so near neighbours would bleed into each other.
@@ -26,35 +23,14 @@ class DrawnLevelController extends Controller
         'hazard' => '#ff0000',
     ];
 
-    public function show(): Response
+    /**
+     * Only the page. The drawing itself never reaches this server unless it is
+     * saved: the canvas becomes a blob the browser keeps and plays from.
+     */
+    public function __invoke(): Response
     {
         return Inertia::render('Draw', [
             'palette' => self::PALETTE,
         ]);
-    }
-
-    /**
-     * The drawn canvas arrives as an ordinary PNG upload, so the same
-     * validation as a photographed level applies.
-     */
-    public function store(UploadLevelRequest $request): RedirectResponse
-    {
-        $path = $request
-            ->file('levelImage')
-            ->store('levels', 'local');
-
-        session([
-            'uploadedLevel' => $path,
-            'platformColor' => self::PALETTE['platform'],
-            'goalColor' => self::PALETTE['goal'],
-            'playerColor' => self::PALETTE['player'],
-            'hazardColor' => self::PALETTE['hazard'],
-        ]);
-
-        // A drawn level starts with the default feel; the sliders on the game
-        // page take it from there.
-        session()->forget(['gameSpeed', 'jumpHeight']);
-
-        return redirect()->route('game');
     }
 }

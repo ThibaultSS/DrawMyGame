@@ -1,13 +1,9 @@
 <?php
 
-use Illuminate\Foundation\Inspiring;
-use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Schedule;
 
-Artisan::command('inspire', function () {
-    $this->comment(Inspiring::quote());
-})->purpose('Display an inspiring quote');
-
-// Anyone may upload and play without an account, so most uploads are never
-// saved. Without this they would stay on disk forever.
-Schedule::command('levels:prune')->daily();
+// A safety net rather than a routine: levels are only written to disk as part
+// of saving one, and that deletes the file again if the row cannot be written.
+// This catches an image whose row was lost some other way — a crash between the
+// two, a restore from an older database — so weekly is often enough.
+Schedule::command('levels:prune')->weekly();

@@ -14,10 +14,11 @@
  * photo flow was a game that silently could not start.
  */
 import { onMounted, ref } from "vue";
-import { Head, useForm } from "@inertiajs/vue3";
+import { Head, router } from "@inertiajs/vue3";
 
 import AppLayout from "../Layouts/AppLayout.vue";
 import { detectShapes, hexToRgb } from "../game/colorDetection.js";
+import { putLevel } from "../levelStore.js";
 
 const props = defineProps({
     palette: {
@@ -56,9 +57,9 @@ const brushSize = ref(24);
 const undoStack = ref([]);
 const validationError = ref("");
 
-const form = useForm({
-    levelImage: null
-});
+// toBlob and the level store are both asynchronous, so the button has to be
+// closed by hand — there is no form doing it for us.
+const submitting = ref(false);
 
 // The 2d context and the in-progress stroke are plain variables: nothing in
 // the template depends on them, so reactivity would only add overhead.
@@ -72,10 +73,6 @@ let lastY = 0;
 // flight, another undo or a fresh stroke would race the onload and land out of
 // order, so both wait for it.
 let restoring = false;
-
-// toBlob is asynchronous too, so form.processing is still false for a moment
-// after the click; this closes the double-click window.
-let submitting = false;
 
 onMounted(() => {
     ctx = canvas.value.getContext("2d");
@@ -279,7 +276,7 @@ function listOfRoles(roles) {
 }
 
 function submit() {
-    if (submitting || form.processing) {
+    if (submitting.value) {
         return;
     }
 
@@ -298,18 +295,25 @@ function submit() {
         return;
     }
 
-    submitting = true;
+    submitting.value = true;
 
-    canvas.value.toBlob((blob) => {
-        form.levelImage = new File([blob], "drawing.png", { type: "image/png" });
+    canvas.value.toBlob(async (blob) => {
+        // The drawing stays in the browser, exactly like a photographed level.
+        // It only reaches the server if this level is saved to an account.
+        await putLevel(blob);
 
-        // The server stores the file, remembers the palette and redirects
-        // straight into the game; Inertia follows the redirect, so there is
-        // nothing to handle on success here. onFinish only matters when the
-        // server says no — it reopens the button for another try.
-        form.post("/draw-level", {
+        // The palette is fixed, so there is no colour to pick: the values the
+        // canvas was painted with go straight to the endpoint the eyedropper
+        // posts to, and the server redirects into the game. Inertia follows
+        // that redirect, so there is nothing to handle on success here.
+        router.post("/start-game", {
+            platformColor: props.palette.platform,
+            goalColor: props.palette.goal,
+            playerColor: props.palette.player,
+            hazardColor: props.palette.hazard
+        }, {
             onFinish: () => {
-                submitting = false;
+                submitting.value = false;
             }
         });
     }, "image/png");
@@ -414,14 +418,14 @@ function submit() {
                 <button
                     type="button"
                     class="bg-ink px-6 py-2 text-page disabled:opacity-50"
-                    :disabled="form.processing"
+                    :disabled="submitting"
                     @click="submit"
                 >
                     Play your drawing
                 </button>
 
-                <p v-if="validationError || form.errors.levelImage" class="text-sm text-error" role="alert">
-                    {{ validationError || form.errors.levelImage }}
+                <p v-if="validationError" class="text-sm text-error" role="alert">
+                    {{ validationError }}
                 </p>
 
             </div>

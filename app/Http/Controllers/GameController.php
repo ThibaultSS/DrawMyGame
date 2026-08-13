@@ -2,33 +2,51 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\DrawingVote;
+use App\Models\SavedDrawing;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
-use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\Auth;
 use Inertia\Inertia;
 use Inertia\Response;
 
 class GameController extends Controller
 {
     /**
-     * The game itself runs client-side; this route only hands the engine what
-     * the session has collected. Without an uploaded level and all four
-     * colours there is nothing to build, so the visit starts the flow over.
+     * The game runs client-side; this route only hands the engine what the
+     * session has collected. Without the four colours there is nothing to
+     * build, so the visit starts the flow over.
+     *
+     * The image is not the server's business unless the level is a saved one.
+     * A level that has only been uploaded or drawn is held by the browser, so
+     * levelImage comes back null and the page loads it from the level store.
      */
     public function __invoke(): Response|RedirectResponse
     {
-        if (! session()->has(['uploadedLevel', 'platformColor', 'goalColor', 'playerColor', 'hazardColor'])) {
+        // Three colours, not four: a hazard is optional, and session()->has()
+        // reports false for a null value — so asking for the hazard here would
+        // send every hazard-less level straight back to the upload page.
+        if (! session()->has(['platformColor', 'goalColor', 'playerColor'])) {
             return redirect()->route('upload');
         }
 
-        // The file can be deleted by its owner while someone else is playing
-        // it. Without this the engine boots against a missing texture and
-        // renders an empty world with no explanation.
-        if (! Storage::disk('local')->exists(session('uploadedLevel'))) {
+        $replayId = session('replayDrawingId');
+        $replayed = $replayId ? SavedDrawing::find($replayId) : null;
+
+        // The owner can unpublish or delete a drawing while someone else is
+        // playing it. Without this the page would boot against an image that
+        // 404s and render an empty world with no explanation.
+        if ($replayId && ! $replayed?->isPlayableBy(Auth::id())) {
+            session()->forget('replayDrawingId');
+
             return redirect()->route('upload')->with('message', 'That level is no longer available.');
         }
 
         return Inertia::render('Game', [
-            'levelImage' => route('uploaded-level'),
+            'levelImage' => $replayed ? route('drawings.image', $replayed) : null,
+            // Lets Save update this drawing instead of duplicating it.
+            'drawingId' => $replayed?->id,
+            ...$this->voteSummary($replayed),
             'platformColor' => session('platformColor'),
             'goalColor' => session('goalColor'),
             'playerColor' => session('playerColor'),
@@ -38,5 +56,38 @@ class GameController extends Controller
             'speed' => (int) session('gameSpeed', 5),
             'jumpHeight' => (int) session('jumpHeight', 10),
         ]);
+    }
+
+    /**
+     * How this level stands, and whether this visitor may have a say.
+     *
+     * All of it is empty for a level the browser is holding: there is nothing
+     * to vote on until a level has been saved and published.
+     *
+     * @return array{likes: int, dislikes: int, myVote: int|null, canVote: bool}
+     */
+    private function voteSummary(?SavedDrawing $drawing): array
+    {
+        if (! $drawing) {
+            return ['likes' => 0, 'dislikes' => 0, 'myVote' => null, 'canVote' => false];
+        }
+
+        $drawing->loadCount([
+            'votes as likes_count' => fn (Builder $votes) => $votes->where('value', DrawingVote::LIKE),
+            'votes as dislikes_count' => fn (Builder $votes) => $votes->where('value', DrawingVote::DISLIKE),
+        ]);
+
+        $myVote = Auth::check()
+            ? $drawing->votes()->where('user_id', Auth::id())->value('value')
+            : null;
+
+        return [
+            'likes' => $drawing->likes_count,
+            'dislikes' => $drawing->dislikes_count,
+            'myVote' => $myVote === null ? null : (int) $myVote,
+            // Voting needs an account, the level has to be public, and authors
+            // do not rank their own work.
+            'canVote' => $drawing->published && Auth::check() && $drawing->user_id !== Auth::id(),
+        ];
     }
 }

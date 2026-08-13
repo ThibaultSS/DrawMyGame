@@ -9,7 +9,7 @@
  * destinations (like /auth/google on the login page) still need a plain <a>.
  */
 import { computed } from "vue";
-import { Link, router, usePage } from "@inertiajs/vue3";
+import { Link, usePage } from "@inertiajs/vue3";
 
 import FlashToast from "../Components/FlashToast.vue";
 
@@ -26,13 +26,6 @@ const NAV_LINKS = [
 const user = computed(() => usePage().props.auth.user);
 
 const year = new Date().getFullYear();
-
-// A POST, not a link: logging out changes state, and Inertia sends the CSRF
-// token for us. The route ends in Inertia::location, so the browser lands on the
-// home page with a full visit.
-function logout() {
-    router.post("/logout");
-}
 </script>
 
 <template>
@@ -55,19 +48,16 @@ function logout() {
                         {{ link.label }}
                     </Link>
 
-                    <template v-if="user">
-                        <Link
-                            href="/account"
-                            class="flex size-9 items-center justify-center rounded-full bg-sub text-xs font-semibold"
-                            :title="user.username"
-                        >
-                            {{ user.initials }}
-                        </Link>
-
-                        <button type="button" class="hover:underline" @click="logout">
-                            Log out
-                        </button>
-                    </template>
+                    <!-- Logging out lives on the account page, with the rest of
+                         what you can do to your account. -->
+                    <Link
+                        v-if="user"
+                        href="/account"
+                        class="flex size-9 items-center justify-center rounded-full bg-sub text-xs font-semibold"
+                        :title="user.username"
+                    >
+                        {{ user.initials }}
+                    </Link>
 
                     <Link v-else href="/login" class="hover:underline">
                         Log in

@@ -92,17 +92,20 @@ function imageToLevelData(scene) {
 
     const pixels = ctx.getImageData(0, 0, source.width, source.height).data;
 
-    const detected = detectShapes(
-        pixels,
-        source.width,
-        source.height,
-        [
-            { key: "platform", color: hexToRgb(window.platformColor) },
-            { key: "goal",     color: hexToRgb(window.goalColor) },
-            { key: "player",   color: hexToRgb(window.playerColor) },
-            { key: "hazard",   color: hexToRgb(window.hazardColor) }
-        ]
-    );
+    const targets = [
+        { key: "platform", color: hexToRgb(window.platformColor) },
+        { key: "goal",     color: hexToRgb(window.goalColor) },
+        { key: "player",   color: hexToRgb(window.playerColor) }
+    ];
+
+    // A hazard colour is optional: a level with nothing dangerous in it is
+    // still a level. Without one there is no colour to look for, and asking
+    // hexToRgb for the pixels of null would match nothing anyway.
+    if (window.hazardColor) {
+        targets.push({ key: "hazard", color: hexToRgb(window.hazardColor) });
+    }
+
+    const detected = detectShapes(pixels, source.width, source.height, targets);
 
     // One outline per shape, scaled to world coordinates. The same points are used
     // both to draw the shape and to build its collider, so the two always match.
@@ -112,7 +115,7 @@ function imageToLevelData(scene) {
 
     outlines = detected.platform.map(toWorldOutline);
     goalOutlines = detected.goal.map(toWorldOutline);
-    hazardOutlines = detected.hazard.map(toWorldOutline);
+    hazardOutlines = (detected.hazard ?? []).map(toWorldOutline);
 
     // Only the largest shape in the player colour counts, so stray marks in that
     // colour do not become a second player.
@@ -387,9 +390,13 @@ function create() {
     createObjects(this, goalOutlines, window.goalColor.replace("#", "0x"));
     createShapeBodies(this, goalOutlines, { isStatic: true, isSensor: true }, "goal");
 
-    // Hazards
-    createObjects(this, hazardOutlines, window.hazardColor.replace("#", "0x"));
-    createShapeBodies(this, hazardOutlines, { isStatic: true, isSensor: true }, "hazard");
+    // Hazards, if this level has any. The guard is on the colour rather than
+    // on the outlines: .replace() is evaluated before the call, so a missing
+    // hazard colour would throw here even with nothing to draw.
+    if (window.hazardColor) {
+        createObjects(this, hazardOutlines, window.hazardColor.replace("#", "0x"));
+        createShapeBodies(this, hazardOutlines, { isStatic: true, isSensor: true }, "hazard");
+    }
 
     // The sliders own these numbers. Reading them at startup matters for a
     // replayed drawing: it arrives with the speed and jump its author saved,

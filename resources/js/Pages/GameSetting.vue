@@ -10,25 +10,64 @@
  * all four colours are picked. The old page happily posted an empty form and the
  * game then silently broke, because the engine had no colours to match against.
  */
-import { computed, ref } from "vue";
-import { Head, useForm } from "@inertiajs/vue3";
+import { computed, onMounted, onUnmounted, ref } from "vue";
+import { Head, router, useForm } from "@inertiajs/vue3";
 
 import AppLayout from "../Layouts/AppLayout.vue";
+import { getLevel } from "../levelStore.js";
 
-defineProps({
+const props = defineProps({
+    // Only a replayed drawing arrives with a server-side image. A level that
+    // was just uploaded or drawn is held by the browser and never posted, so
+    // for those this is null and the picture comes out of the level store.
     image: {
         type: String,
-        required: true
+        default: null
+    }
+});
+
+const imageUrl = ref(props.image);
+
+// Set only when this page created the URL, so only this page revokes it.
+let objectUrl = null;
+
+onMounted(async () => {
+    if (imageUrl.value) {
+        return;
+    }
+
+    const blob = await getLevel();
+
+    // No level on the server and none in the browser: the flow was entered
+    // sideways, or the store was cleared. Start over rather than show a
+    // broken image the eyedropper would throw on.
+    if (! blob) {
+        router.visit("/upload");
+
+        return;
+    }
+
+    objectUrl = URL.createObjectURL(blob);
+    imageUrl.value = objectUrl;
+});
+
+onUnmounted(() => {
+    if (objectUrl) {
+        URL.revokeObjectURL(objectUrl);
     }
 });
 
 // One entry per thing a colour can mean in the game. The form field for a role
 // is always `${key}Color`, which is exactly what /start-game expects.
+// Three of these make a level: something to stand on, somewhere to get to and
+// someone to move. Hazards are optional — a level with nothing dangerous in it
+// is still a level, and demanding one meant inventing a danger to get past
+// this page.
 const ROLES = [
-    { key: "platform", label: "Pick Platform" },
-    { key: "goal", label: "Pick Goal" },
-    { key: "player", label: "Pick Player" },
-    { key: "hazard", label: "Pick Hazard" }
+    { key: "platform", label: "Pick Platform", required: true },
+    { key: "goal", label: "Pick Goal", required: true },
+    { key: "player", label: "Pick Player", required: true },
+    { key: "hazard", label: "Pick Hazard", required: false }
 ];
 
 // The role the next click on the image will colour. Null until a button is
@@ -44,7 +83,9 @@ const form = useForm({
     hazardColor: ""
 });
 
-const allPicked = computed(() => ROLES.every((role) => form[`${role.key}Color`] !== ""));
+const allPicked = computed(
+    () => ROLES.filter((role) => role.required).every((role) => form[`${role.key}Color`] !== "")
+);
 
 // The disabled button makes a rejected submit unlikely, but the server still
 // validates; if it does say no, the reason has to be visible somewhere.
@@ -87,7 +128,15 @@ function pickColor(event) {
 }
 
 function submit() {
-    form.post("/start-game");
+    form
+        .transform((data) => ({
+            ...data,
+            // An unpicked hazard means "no hazards", not a colour of "". The
+            // empty-string middleware would do this too, but a page should not
+            // need a middleware to make its own payload valid.
+            hazardColor: data.hazardColor || null
+        }))
+        .post("/start-game");
 }
 </script>
 
@@ -100,6 +149,7 @@ function submit() {
             <div class="text-center">
                 <h1 class="text-2xl font-semibold tracking-tight">Select Colors</h1>
                 <p class="mt-2">Click a button, then click the corresponding color on the image.</p>
+                <p class="mt-1 text-sm">Hazards are optional — leave them out for a level with nothing dangerous in it.</p>
             </div>
 
             <div class="flex flex-wrap justify-center gap-4">
@@ -122,12 +172,15 @@ function submit() {
                         class="size-10 border border-sub"
                         :style="form[`${role.key}Color`] ? { backgroundColor: form[`${role.key}Color`] } : null"
                     ></span>
+
+                    <span v-if="! role.required" class="text-sm">optional</span>
                 </div>
             </div>
 
             <img
+                v-if="imageUrl"
                 ref="preview"
-                :src="image"
+                :src="imageUrl"
                 alt="Your uploaded level"
                 class="w-full max-w-3xl cursor-crosshair border border-sub"
                 @click="pickColor"

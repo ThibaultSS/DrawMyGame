@@ -10,9 +10,11 @@ use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\Storage;
 
 /**
- * Most uploads are never saved: anyone may upload a level and play it without
- * an account, and only pressing Save attaches the file to a drawing. Nothing
- * else ever removes those files, so without this they pile up on disk forever.
+ * A safety net. Level images only reach the disk as part of saving a drawing,
+ * which deletes the file again if the row cannot be written, so an image that
+ * nothing points at should not exist. This finds the ones that do anyway —
+ * after a crash between the two writes, or a database restored from a backup
+ * older than the files beside it.
  */
 #[Signature('levels:prune {--hours=24 : Leave files younger than this alone}')]
 #[Description('Delete uploaded level images that no saved drawing references')]

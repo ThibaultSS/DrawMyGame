@@ -64,11 +64,19 @@ The four colours come from the session and the speed/jump from the sliders' curr
 
 Published drawings are playable by everyone, unpublished ones only by their owner; anything else is a 404. A drawing saved with its settings fills in colours, speed and jump and goes straight to `/game`, playing exactly as its author tuned it. A drawing saved before settings existed still detours through `/game-setting` to re-pick colours.
 
+## Sharing a level
+
+Publishing asks for a **title** and, optionally, a **description** — a gallery card with neither says nothing about what a level is. Publishing again is how those are edited; unpublishing takes the level out of the gallery but keeps the text, so putting it back does not mean writing it again.
+
+Anyone signed in can **like or dislike** a level while playing it — one vote each, changeable, and clicking the same button again takes it back. You cannot vote on your own level. Signing in is what makes one-vote-per-person enforceable: it is a unique index on `(user, drawing)` rather than a promise.
+
+The gallery can be **searched** by title or author and **sorted** by newest or most liked, where "most liked" means likes minus dislikes — so a divisive level does not outrank a quietly good one on raw likes alone.
+
 ## What the server keeps
 
 **In the session:** the four colours, `gameSpeed`, `jumpHeight`, and `replayDrawingId` (which saved drawing, if any, is being played). Never the picture.
 
-**In the database:** `saved_drawings` — the image path, the owner, `published`, plus the whole game: four colour columns and `speed`/`jump_height`. All nullable, because drawings from before that migration have none; `hasGameSettings()` is what tells the two apart. Rows are soft-deleted.
+**In the database:** `saved_drawings` — the image path, the owner, `published`, the `title`/`description`, plus the whole game: four colour columns and `speed`/`jump_height`. All nullable, because drawings from before those migrations have none; `hasGameSettings()` is what tells the two apart. Rows are soft-deleted. `drawing_votes` holds one row per person per drawing, `value` being `1` or `-1`.
 
 **On disk:** `storage/app/private/levels`, the **private** disk. There is no public URL and `storage:link` is not part of this flow. Images are served only by `LevelImageController` at `/drawings/{drawing}/image`, which checks published-or-owner on every request.
 
@@ -184,6 +192,34 @@ The change described at the top of Part 1, and the largest structural one.
 **What arrived:** `resources/js/levelStore.js` (IndexedDB, with an in-memory fallback for browsers whose privacy mode refuses to open a database), the `replayDrawingId` session key, and `drawingId` on the save request.
 
 `levels:prune` survives as a weekly safety net rather than a daily chore: the file and the row are now written together, and the file is deleted again if the row cannot be written, so an orphan should not be possible in the first place.
+
+## 8. A community worth browsing *(9 Aug, uncommitted)*
+
+The gallery was an image and an author's name per card, ordered newest first. Nothing said what a level was, nothing said whether it was any good, and once a level fell off the first page there was no way back to it.
+
+**Titles and descriptions.** Publishing stopped being a one-click toggle and became two routes: `publish` carries a title (required) and an optional description and doubles as the edit, `unpublish` carries nothing and leaves the text alone. The form opens inside the card on the account page rather than in a dialog — no focus trap or escape-key handling to get wrong. Both columns are nullable, so the drawings published before this still work and simply read "Untitled".
+
+**Likes and dislikes**, cast while playing a level. One vote per person, changeable, and clicking the same button again takes it back. You cannot vote on your own level, and voting needs an account — which is the point: a unique index on `(user, drawing)` makes one-vote-each a fact about the database rather than a hope about the controller. Anonymous voting would have reached more people but could be repeated by clearing cookies, so the counts would have meant nothing.
+
+**Search and sorting.** The gallery takes a search over title *or* author name — with the `or` nested inside a closure, because left ungrouped it would escape the `published` filter and start showing unpublished levels to everyone — and a Newest / Most liked switch. "Most liked" ranks by likes minus dislikes rather than raw likes. The paginator uses `withQueryString()`, without which page two silently drops both.
+
+A second test file, `tests/Feature/CommunityTest.php`, covers this: 21 tests across publishing rules, the voting rules above, search, ranking and query-string pagination.
+
+## 9. Four fixes from playing it *(10 Aug, uncommitted)*
+
+**The controls moved beside the game.** They sat under an 800-pixel canvas, so changing the speed meant scrolling away from what you were changing. They are now a column to the right of it, dropping back underneath on narrow screens where a side column would leave the game too small to play.
+
+**Hazards became optional.** Colour picking demanded all four roles, so a level with nothing dangerous in it could not be started without inventing a danger. Three of them make a level; the hazard is now nullable. That touched more than the rule: `session()->has()` reports false for a null value, so `/game` had to ask for three colours or it would have bounced every hazard-less level back to the upload page — and `main.js` evaluates `window.hazardColor.replace(…)` before deciding whether there is anything to draw, which would have thrown at boot. Writing the tests also turned up a leak: an omitted hazard left the *previous* level's hazard colour in the session, because `validated()` omits a key that was never sent.
+
+**Log out left the navigation** for the account page, where the rest of what you can do to your account now lives.
+
+**An account section**, on `/account` above the drawings: change your username — it is the name on every community card, so the change follows the levels — change your password, or delete the account.
+
+Deleting is confirmed by typing your **username**, not your password, because accounts created through Google were given a random one nobody knows; a password prompt would have left those people unable to delete their own account. For the same reason the password form is honestly labelled as not available to them.
+
+What deletion keeps is the interesting part: **published levels stay**, credited to "Unknown publisher". They are already out in the community — other people have played and voted on them — so the author key became nullable with `nullOnDelete` rather than cascading. Unpublished drafts are private and go with the account, image files included. One consequence worth naming: with a nullable owner, a signed-out visitor's id is *also* null, so `isPlayableBy()` needed an explicit check or an ownerless private level would have matched every guest.
+
+`tests/Feature/AccountTest.php` covers the three forms, what deletion keeps and removes, and that guest guard.
 
 ---
 
