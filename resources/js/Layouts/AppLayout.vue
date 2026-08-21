@@ -11,6 +11,7 @@
 import { computed } from "vue";
 import { Link, usePage } from "@inertiajs/vue3";
 
+import CookieNotice from "../Components/CookieNotice.vue";
 import FlashToast from "../Components/FlashToast.vue";
 
 const NAV_LINKS = [
@@ -76,7 +77,7 @@ const year = new Date().getFullYear();
 
                 <p>&copy; {{ year }} DrawMyGame</p>
 
-                <nav class="flex gap-6">
+                <nav class="flex flex-wrap gap-6">
                     <Link
                         v-for="link in NAV_LINKS"
                         :key="link.href"
@@ -85,12 +86,21 @@ const year = new Date().getFullYear();
                     >
                         {{ link.label }}
                     </Link>
+
+                    <!-- Footer only, so it is deliberately not in NAV_LINKS:
+                         that array feeds the top nav as well, and this does not
+                         belong up there. -->
+                    <Link href="/cookies" class="hover:underline">
+                        Cookies
+                    </Link>
                 </nav>
 
             </div>
         </footer>
 
         <FlashToast />
+
+        <CookieNotice />
 
     </div>
 </template>

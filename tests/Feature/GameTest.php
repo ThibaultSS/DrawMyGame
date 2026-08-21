@@ -41,6 +41,14 @@ class GameTest extends TestCase
         $response->assertInertia(fn (AssertableInertia $page) => $page->component('About'));
     }
 
+    // 2c. Cookies page loads correctly
+    public function test_cookies_page_loads()
+    {
+        $response = $this->get('/cookies');
+        $response->assertStatus(200);
+        $response->assertInertia(fn (AssertableInertia $page) => $page->component('Cookies'));
+    }
+
     // 3. Community page loads correctly and lists only published drawings, with
     // just the fields the cards draw
     public function test_community_page_loads()

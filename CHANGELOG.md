@@ -221,6 +221,62 @@ What deletion keeps is the interesting part: **published levels stay**, credited
 
 `tests/Feature/AccountTest.php` covers the three forms, what deletion keeps and removes, and that guest guard.
 
+## 10. A home page worth landing on *(15 Aug, uncommitted)*
+
+The landing page was a heading, one paragraph, one button and three long blocks of text. It gave no sense of what the site is, and it never mentioned `/draw` at all — the second way to make a level was reachable only from the nav.
+
+**The banner video came back.** It had been dropped in the Blade → Vue port and was still sitting unused in `public/`, so it moved to `public/assets/banner.mp4` — the old name, `Banner_video (1).mp4`, needed URL-encoding for its space and parentheses every time it was written. It is 1920×1080 H.264, 48 seconds, 6.36 MB, and is shipped as-is rather than re-encoded.
+
+Three things make that size and length safe. It is `muted`, without which no browser will autoplay it — and it does have an audio track. It is `preload="metadata"`, so first paint does not wait on 6 MB. And the hero sits on `bg-ink` with the copy already in white over a `bg-ink/50` scrim, so the page reads correctly before a single frame has arrived and stays readable over whatever frame is showing. A 48-second loop behind text is also exactly what `prefers-reduced-motion` is for: when it is set the video does not autoplay and gains its own controls instead, so it is still there for anyone who wants it.
+
+**A second button.** The hero offers Upload *and* Draw. Drawing in the browser was reachable only from the nav before, even though it is the way in that skips colour picking entirely.
+
+**A fourth section, "Play what others drew"** — the community explained in the same shape as the three that were already there: what the gallery is, that you can search and sort it, that voting needs an account and gives you one vote per level, that saving someone else's level hands you your own copy to re-tune while theirs stays untouched, and how publishing and unpublishing your own works. Its picture is still to come, so `SECTIONS` takes a null `image` and the section renders a dashed placeholder frame rather than a broken image.
+
+**"How you play" spelled out.** The three arrow keys, then what winning and losing actually look like — confetti and a message, or a stop with Close and Retry and no lives to run out of — then the two sliders beside the game and the fact that saving keeps them, so the next person starts at the feel you settled on. It closes on the thing that surprises people: the physics follow your lines rather than a tidied-up version of them, so a shape you thought was closed but is not will let you fall straight through it.
+
+The three original how-it-works sections are untouched, and no back end changed — the page is still a static `Route::inertia()`.
+
+An earlier version of this page also carried a live strip of the best-liked community levels and a folded FAQ. Both were cut on review, and the `HomeController`, the model scopes and the home-page tests that fed the strip were reverted with them rather than left in place unused.
+
+## 11. The About page, framed *(15 Aug, uncommitted)*
+
+Presentation only — every word on the page is the one that was already there.
+
+The page is now laid out **exactly** like the home page rather than merely near it: the same banner treatment, the same `gap-20` container, and the same alternating sections driven by a `SECTIONS` array instead of two hand-mirrored blocks of markup. A first attempt invented its own spacing scale and put hairline rules between the sections — details the home page does not have — which made the two pages look related rather than the same. The rules are gone.
+
+The banner is the home hero without the video: a full-bleed black band, title centred in white. There is no artwork for it yet, so it carries the same dashed "Picture coming soon" marker as the community section, and dropping a picture in is one line — `BANNER.image` — after which the image fills the band under a scrim and the marker removes itself.
+
+The old `<h1>About</h1>` is absorbed into the banner instead of repeated under it, and the opening paragraph sets as a lead. The two logo frames share a height, since a logo is centred in a padded frame rather than filling it like the home page's photographs, and without that the sections sat at two different heights.
+
+One thing fixed in passing: `Phaser_Logo.png` is **3 MB** for a logo drawn at 128 px tall, and was loading eagerly. Both logos are now `loading="lazy"`. Re-encoding that file — it should be well under 100 KB — is still worth doing and is not done here.
+
+---
+
+## 12. Full-height banners, and a way down *(20 Aug, uncommitted)*
+
+Both banners now fill the screen, so no text peeks out underneath and the picture gets the whole window. The height is `calc(100svh - 5rem)` rather than a round `100vh`: the `5rem` is the header the banner sits under, so the band ends *at* the fold instead of 4 rem past it, and `svh` rather than `vh` because a phone's address bar makes `100vh` taller than what you can actually see — with `vh` the bottom of the banner, and the arrow on it, would sit off-screen on exactly the devices that need the arrow most.
+
+Which is the new problem a full-screen banner creates: it looks like the entire page. So there is now a **scroll cue** — an arrow that nudges up and down at the foot of the banner, and scrolls you to the first block of text when clicked. Scrolling yourself works as it always did; this only makes the page's length obvious.
+
+It lives in `resources/js/Components/ScrollCue.vue` and both banners use it, so they cannot drift apart — and swapping the drawn chevron for artwork is one line, `ARROW.image`, for the whole site. `prefers-reduced-motion` is honoured twice over: the bounce is behind a `motion-safe:` variant, and the scroll jumps rather than glides.
+
+The cue was asked for on the home page. It is on the About banner too, because that banner now hides its text in exactly the same way.
+
+---
+
+## 13. The About logo, and what the site stores *(20 Aug, uncommitted)*
+
+**The About banner has its artwork.** Two things about the file decided how it is used, both checked rather than assumed. It is 891×388, so stretching it across a full-screen banner would have been a 2.3× upscale and visibly soft on the lettering — it is therefore capped at `max-w-xl`, below its own width, so it is only ever scaled down. And it is a JPEG of black lettering on white with no transparency, so dropped straight onto the black band it would have rendered as a white rectangle; it sits in a white panel instead, which is the same framing the two logos further down the page already use, and is what makes the white ground read as deliberate rather than as a mistake.
+
+The heading went `sr-only` rather than being deleted. The logo already says the site's name, so showing both printed it twice — but a page still needs a heading for its document structure, so it stays in the markup and only leaves the screen.
+
+**A cookie notice, and a `/cookies` page.** Deliberately *not* an Accept/Reject banner. This site sets two cookies, `drawmygame-session` and `XSRF-TOKEN`, and both are strictly necessary; there is no analytics, no advertising and no third-party script anywhere in `resources/`. Strictly necessary cookies are exempt from consent, so a banner offering a choice would have been offering one that does not exist. Instead there is a short note saying what is stored, and a page setting out all three things — the two cookies and the level store — with what each is for and how long it lasts, plus the detail that signing in with Google leaves its cookies on Google's domain and not this one.
+
+Two small decisions inside it. The note sits **bottom left**, because `FlashToast` already owns the bottom right and a bar or a right-hand card would have sat under the toast the first time somebody saved a drawing. And the dismissal is kept in `localStorage` **rather than in a cookie** — recording that somebody read a notice about cookies by setting a cookie is exactly the kind of detail that makes the notice untrue. Both ends are wrapped in `try/catch`, since a privacy mode can refuse `localStorage` just as it can refuse the level store's IndexedDB; the honest failure is that the note appears again next visit.
+
+The `/cookies` link is in the footer only. It is deliberately not in `NAV_LINKS`, which feeds the top nav as well.
+
 ---
 
 # Part 3 — Deliberately not done
@@ -243,7 +299,7 @@ What deletion keeps is the interesting part: **published levels stay**, credited
 composer run dev            # server + queue + vite together
 composer run setup          # install, .env, key, migrate, npm install, build
 
-php artisan test --compact  # 63 tests
+php artisan test --compact  # 100 tests
 npm run test                # 54 tests (vitest — the pixel work and the level store)
 npm run build
 

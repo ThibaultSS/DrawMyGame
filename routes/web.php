@@ -17,6 +17,7 @@ use Illuminate\Support\Facades\Route;
 // controller or closure to maintain for a page with no data.
 Route::inertia('/', 'Home')->name('home');
 Route::inertia('/about', 'About')->name('about');
+Route::inertia('/cookies', 'Cookies')->name('cookies');
 Route::inertia('/upload', 'Upload')->name('upload');
 
 // 'guest' sends anyone already signed in away instead of showing them the form.

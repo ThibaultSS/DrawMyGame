@@ -1,19 +1,28 @@
 <script setup>
 /**
- * The landing page: a hero that sends people to /upload, then three sections
- * that walk through the loop — draw a level, photograph it, play it.
+ * The landing page: a banner video you can read over, then the loop explained
+ * at length — draw a level, photograph it, play it, and play everyone else's.
  *
- * The Blade version opened with a banner video under an overlay and framed
- * every image and button with animated PNG borders swapped by setInterval.
- * None of that is carried over: the migrated pages are typographic, so this
- * one is the copy, three images, and a single button.
+ * The video is decoration, so it is aria-hidden and muted — browsers refuse to
+ * autoplay anything with sound anyway, and this file has an audio track. It
+ * sits on a black section, so the hero is readable from the first paint
+ * whether or not a single frame has arrived yet.
  */
 import { Head, Link } from "@inertiajs/vue3";
 
 import AppLayout from "../Layouts/AppLayout.vue";
+import ScrollCue from "../Components/ScrollCue.vue";
 
-// The three how-it-works sections, as data: the alternating image side is
-// then one class binding instead of three hand-mirrored blocks of markup.
+// A 48-second loop behind the page copy is exactly what this setting is for.
+// Without autoplay the video holds still and gains its own controls, so it is
+// there for anyone who does want to watch it.
+const reduceMotion =
+    typeof window !== "undefined" &&
+    window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+// The how-it-works sections, as data: the alternating image side is then one
+// class binding instead of four hand-mirrored blocks of markup. A section with
+// no image yet renders a placeholder frame in its place.
 const SECTIONS = [
     {
         title: "Start Drawing!",
@@ -43,6 +52,17 @@ const SECTIONS = [
             "Use the arrow keys to move your character and jump your way to the goal while avoiding any hazards you drew along the way. Every level is unique because you made it, the shapes, the layout, all of it comes straight from your imagination.",
             "Want to try something different? No problem. You can upload as many levels as you want and even save your favorites to your account to replay them whenever you want. So keep drawing, keep experimenting and most importantly, enjoy the experience!"
         ]
+    },
+    {
+        title: "Play what others drew",
+        // Waiting on the artwork for this one. Until it arrives the section
+        // renders a placeholder frame rather than a broken image.
+        image: null,
+        alt: "Levels made by the community",
+        paragraphs: [
+            "You are not the only one drawing. Every level someone decides to share ends up in the community gallery, and all of them are free to play. Some are careful little puzzles with platforms placed exactly where they need to be, others are wild scribbles that somehow still work. Head to the community page and you can search through them by title or by the person who made them, and sort by the newest levels or by the ones everybody likes most.",
+            "Playing someone else's level works exactly like playing your own. Same arrow keys, same goal, same spikes to keep away from. The only difference is that you have no idea what is coming, which is half the fun. If a level made you laugh or made you rage quit, you can give it a thumbs up or a thumbs down while you play it. That needs an account and you get one vote per level, so the rankings mean something."
+        ]
     }
 ];
 </script>
@@ -52,26 +72,59 @@ const SECTIONS = [
 
     <AppLayout>
 
-        <!-- The hero: what the banner video used to say, in plain type. -->
-        <section class="border-b border-sub">
-            <div class="mx-auto flex w-full max-w-6xl flex-col items-center gap-6 px-6 py-20 text-center">
+        <!--
+            The hero. bg-ink is not just a fallback: the video is 6 MB and only
+            its metadata is preloaded, so the black ground with white type on it
+            is what the first paint actually shows.
+        -->
+        <section class="relative flex min-h-[calc(100svh_-_5rem)] items-center justify-center overflow-hidden bg-ink">
 
-                <h1 class="text-4xl font-semibold tracking-tight">Upload your drawing!</h1>
+            <video
+                class="absolute inset-0 size-full object-cover"
+                src="/assets/banner.mp4"
+                muted
+                :autoplay="!reduceMotion"
+                :controls="reduceMotion"
+                loop
+                playsinline
+                preload="metadata"
+                aria-hidden="true"
+                tabindex="-1"
+            ></video>
+
+            <!-- Without this the copy is only as readable as whatever frame
+                 happens to be showing behind it. -->
+            <div class="absolute inset-0 bg-ink/50"></div>
+
+            <div class="relative flex w-full max-w-6xl flex-col items-center gap-6 px-6 py-24 text-center text-page">
+
+                <h1 class="text-4xl font-semibold tracking-tight md:text-5xl">
+                    Draw it. Play it.
+                </h1>
 
                 <p class="max-w-xl text-lg">
-                    Draw your own picture and play it! Make platforms, your own
-                    characters and deadly spikes. Your creativity is the limit.
-                    Try it now!
+                    Turn a hand-drawn picture into a platformer you can play.
+                    Draw the platforms, the goal, the spikes and yourself — the
+                    game builds the rest.
                 </p>
 
-                <Link href="/upload" class="bg-ink px-6 py-2 text-page">
-                    Upload
-                </Link>
+                <div class="flex flex-wrap items-center justify-center gap-4">
+                    <Link href="/upload" class="bg-page px-6 py-3 text-ink">
+                        Upload a drawing
+                    </Link>
+
+                    <Link href="/draw" class="border border-page px-6 py-3 text-page">
+                        Draw one here
+                    </Link>
+                </div>
 
             </div>
+
+            <ScrollCue target="page-content" />
+
         </section>
 
-        <div class="mx-auto flex w-full max-w-6xl flex-col gap-20 px-6 py-16">
+        <div id="page-content" class="mx-auto flex w-full max-w-6xl flex-col gap-20 px-6 py-16">
 
             <section
                 v-for="(section, index) in SECTIONS"
@@ -80,10 +133,21 @@ const SECTIONS = [
                 :class="{ 'md:flex-row-reverse': index % 2 === 1 }"
             >
                 <img
+                    v-if="section.image"
                     :src="section.image"
                     :alt="section.alt"
                     class="w-full border border-sub md:w-1/2"
                 >
+
+                <!-- Dashed, like the upload dropzone, so it reads as a space
+                     waiting to be filled rather than as a picture that failed
+                     to load. -->
+                <div
+                    v-else
+                    class="flex aspect-4/3 w-full items-center justify-center border border-dashed border-sub text-sm md:w-1/2"
+                >
+                    Picture coming soon
+                </div>
 
                 <div class="md:w-1/2">
                     <h2 class="text-2xl font-semibold tracking-tight">{{ section.title }}</h2>
@@ -96,6 +160,66 @@ const SECTIONS = [
                         {{ paragraph }}
                     </p>
                 </div>
+            </section>
+
+            <section>
+                <h2 class="text-2xl font-semibold tracking-tight">How you play</h2>
+
+                <p class="mt-4">
+                    The whole game is three keys, so there is nothing to learn
+                    before you start. The left and right arrows walk your
+                    character across the platforms you drew, and the up arrow
+                    jumps. That is it. No double jump to master, no combo to
+                    remember, no menu to read first.
+                </p>
+
+                <div class="mt-8 flex flex-wrap items-center gap-x-12 gap-y-6">
+                    <div class="flex items-center gap-3">
+                        <span class="flex size-10 items-center justify-center border border-ink" aria-hidden="true">&larr;</span>
+                        <span class="flex size-10 items-center justify-center border border-ink" aria-hidden="true">&rarr;</span>
+                        <span>Left and right arrows to move</span>
+                    </div>
+
+                    <div class="flex items-center gap-3">
+                        <span class="flex size-10 items-center justify-center border border-ink" aria-hidden="true">&uarr;</span>
+                        <span>Up arrow to jump</span>
+                    </div>
+                </div>
+
+                <p class="mt-8">
+                    Your job is to reach the goal you drew without touching
+                    anything you drew as a hazard. Get there and the game says
+                    so, with rather a lot of confetti. Touch a spike and it
+                    stops you where you are, and you can either close the
+                    message to look at what went wrong or hit Retry and start
+                    the level again from the beginning. There are no lives to
+                    run out of and nothing to lose, so a level that beats you
+                    the first ten times costs you nothing but another go.
+                </p>
+
+                <p class="mt-4">
+                    Next to the game itself are two sliders, one for how fast
+                    your character moves and one for how high it jumps. You can
+                    drag them in the middle of a run and feel the difference
+                    immediately, which is usually the quickest way to fix a
+                    level that turned out slightly too hard or slightly too
+                    easy. A gap that looks impossible often just needs a little
+                    more jump. When you save a level, those two settings are
+                    saved with it, so the next time you play it, or the next
+                    person who plays it, starts out with exactly the feel you
+                    settled on.
+                </p>
+
+                <p class="mt-4">
+                    One last thing worth knowing: everything is drawn from your
+                    picture, so the physics follow your lines rather than a
+                    tidied-up version of them. A wobbly platform is genuinely
+                    wobbly, a slope you drew by accident is a slope you can slide
+                    down, and a shape you thought was closed but is not will let
+                    your character fall straight through it. That is not a bug,
+                    it is your drawing, and redrawing that one corner is usually
+                    all it takes.
+                </p>
             </section>
 
         </div>
