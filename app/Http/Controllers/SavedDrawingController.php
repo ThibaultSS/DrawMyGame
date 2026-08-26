@@ -9,10 +9,10 @@ use App\Models\SavedDrawing;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\UploadedFile;
 use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Storage;
-use Illuminate\Support\Str;
 use Inertia\Inertia;
 use Inertia\Response;
 use Throwable;
@@ -61,17 +61,17 @@ class SavedDrawingController extends Controller
             return back()->with('message', 'Drawing updated.');
         }
 
-        // Saving someone else's level takes a copy of their file: sharing one
-        // file between two owners means neither can really delete it, and the
-        // original owner's delete would leave their drawing on display under
-        // the other person's name. The server already has that image, so the
-        // browser is not asked to upload it again.
+        // Saving someone else's level points at the file they already have
+        // rather than duplicating it. Copying used to be justified by letting
+        // the author's delete really remove their picture — but if fifty people
+        // had copied it, deleting the original left fifty byte-identical files
+        // behind, so it bought no such thing and only multiplied the storage.
         //
         // Anything else is a level the browser was holding, arriving here as an
-        // ordinary upload.
+        // ordinary upload and stored under the hash of its own contents.
         $path = $replayed
-            ? $this->copyOf($replayed->image_path)
-            : $request->file('levelImage')->store('levels', 'local');
+            ? $replayed->image_path
+            : $this->storeByContent($request->file('levelImage'));
 
         $drawing = $this->createDrawing($path, $settings);
 
@@ -244,14 +244,18 @@ class SavedDrawingController extends Controller
 
         $drawing->delete();
 
-        // The page warns that deleting cannot be undone, so the file really
-        // goes. whereKeyNot excludes the row just soft-deleted, which would
-        // otherwise match itself and keep every file alive forever. store()
-        // takes a copy when saving someone else's level, so in practice each
-        // row owns its file; this guard is what makes that assumption safe.
-        $stillReferenced = SavedDrawing::withTrashed()
+        // One picture is one file and several drawings may point at it, so
+        // this check is the mechanism rather than a safety net: the file goes
+        // only once no drawing still needs it.
+        //
+        // Live rows only. Counting trashed ones would pin a shared picture's
+        // file forever — the row just soft-deleted above would match itself,
+        // and once everyone who saved a level had deleted it the file would
+        // still be sitting there with nothing pointing at it. Deleting is
+        // final here, as the page warns, so a trashed row is not a claim on
+        // the file.
+        $stillReferenced = SavedDrawing::query()
             ->where('image_path', $path)
-            ->whereKeyNot($drawing->id)
             ->exists();
 
         if (! $stillReferenced) {
@@ -330,14 +334,27 @@ class SavedDrawingController extends Controller
         }
     }
 
-    /** Duplicates a level image so the new drawing owns its own file. */
-    private function copyOf(string $path): string
+    /**
+     * Stores a level image under the hash of its own contents, so one picture
+     * is one file however many drawings point at it.
+     *
+     * extension() is guessed from the MIME type, which is itself read from the
+     * content, so identical bytes always resolve to an identical path — which
+     * is what makes the exists() check a deduplication rather than a race.
+     *
+     * The directory stays flat. Sharding hash names into levels/ab/cd… is the
+     * usual next step and would quietly break levels:prune, which lists
+     * files('levels') and does not recurse.
+     */
+    private function storeByContent(UploadedFile $file): string
     {
-        $copy = 'levels/'.Str::random(40).'.'.pathinfo($path, PATHINFO_EXTENSION);
+        $path = 'levels/'.hash_file('sha256', $file->getRealPath()).'.'.$file->extension();
 
-        Storage::disk('local')->copy($path, $copy);
+        if (! Storage::disk('local')->exists($path)) {
+            $file->storeAs('levels', basename($path), 'local');
+        }
 
-        return $copy;
+        return $path;
     }
 
     /**

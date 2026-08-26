@@ -173,7 +173,7 @@ A second way in that needs no paper, no camera and no colour picking: a canvas a
 
 Before it lets you play, the page runs **the game's own detector** over the canvas and refuses with a specific message if a platform, goal or player is missing — or drawn, but too small for the engine to see. Checking for coloured pixels was not enough: the detector ignores shapes under 300 px, so a small dot passed a naive check and produced a game with no player in it.
 
-## 6. Dead code removed *(5 Aug, uncommitted)*
+## 6. Dead code removed *(5 Aug, `09197b6`)*
 
 28 files, 27.2 MB, referenced by nothing: three copies of the old banner video (26.7 MB of it), the animated button and photo borders, the old logo and icons, and three stray source images. Only the five images the Home and About pages actually show are left.
 
@@ -181,7 +181,7 @@ Also removed: both scaffolded `ExampleTest` files (the home page is covered prop
 
 `levels:prune` cleared 220 orphaned uploads left behind by the old flow — files nothing referenced, because the sweeper it relied on needs a scheduler that was never set up on this machine.
 
-## 7. Levels stay in the browser until saved *(5 Aug, uncommitted)*
+## 7. Levels stay in the browser until saved *(5 Aug, `09197b6`)*
 
 The change described at the top of Part 1, and the largest structural one.
 
@@ -193,7 +193,7 @@ The change described at the top of Part 1, and the largest structural one.
 
 `levels:prune` survives as a weekly safety net rather than a daily chore: the file and the row are now written together, and the file is deleted again if the row cannot be written, so an orphan should not be possible in the first place.
 
-## 8. A community worth browsing *(9 Aug, uncommitted)*
+## 8. A community worth browsing *(9 Aug, `09197b6`)*
 
 The gallery was an image and an author's name per card, ordered newest first. Nothing said what a level was, nothing said whether it was any good, and once a level fell off the first page there was no way back to it.
 
@@ -205,7 +205,7 @@ The gallery was an image and an author's name per card, ordered newest first. No
 
 A second test file, `tests/Feature/CommunityTest.php`, covers this: 21 tests across publishing rules, the voting rules above, search, ranking and query-string pagination.
 
-## 9. Four fixes from playing it *(10 Aug, uncommitted)*
+## 9. Four fixes from playing it *(10 Aug, `09197b6`)*
 
 **The controls moved beside the game.** They sat under an 800-pixel canvas, so changing the speed meant scrolling away from what you were changing. They are now a column to the right of it, dropping back underneath on narrow screens where a side column would leave the game too small to play.
 
@@ -221,7 +221,7 @@ What deletion keeps is the interesting part: **published levels stay**, credited
 
 `tests/Feature/AccountTest.php` covers the three forms, what deletion keeps and removes, and that guest guard.
 
-## 10. A home page worth landing on *(15 Aug, uncommitted)*
+## 10. A home page worth landing on *(15 Aug, `ce787ec`)*
 
 The landing page was a heading, one paragraph, one button and three long blocks of text. It gave no sense of what the site is, and it never mentioned `/draw` at all — the second way to make a level was reachable only from the nav.
 
@@ -239,7 +239,7 @@ The three original how-it-works sections are untouched, and no back end changed 
 
 An earlier version of this page also carried a live strip of the best-liked community levels and a folded FAQ. Both were cut on review, and the `HomeController`, the model scopes and the home-page tests that fed the strip were reverted with them rather than left in place unused.
 
-## 11. The About page, framed *(15 Aug, uncommitted)*
+## 11. The About page, framed *(15 Aug, `ce787ec`)*
 
 Presentation only — every word on the page is the one that was already there.
 
@@ -253,7 +253,7 @@ One thing fixed in passing: `Phaser_Logo.png` is **3 MB** for a logo drawn at 12
 
 ---
 
-## 12. Full-height banners, and a way down *(20 Aug, uncommitted)*
+## 12. Full-height banners, and a way down *(20 Aug, `ce787ec`)*
 
 Both banners now fill the screen, so no text peeks out underneath and the picture gets the whole window. The height is `calc(100svh - 5rem)` rather than a round `100vh`: the `5rem` is the header the banner sits under, so the band ends *at* the fold instead of 4 rem past it, and `svh` rather than `vh` because a phone's address bar makes `100vh` taller than what you can actually see — with `vh` the bottom of the banner, and the arrow on it, would sit off-screen on exactly the devices that need the arrow most.
 
@@ -265,7 +265,7 @@ The cue was asked for on the home page. It is on the About banner too, because t
 
 ---
 
-## 13. The About logo, and what the site stores *(20 Aug, uncommitted)*
+## 13. The About logo, and what the site stores *(20 Aug, `ce787ec`)*
 
 **The About banner has its artwork.** Two things about the file decided how it is used, both checked rather than assumed. It is 891×388, so stretching it across a full-screen banner would have been a 2.3× upscale and visibly soft on the lettering — it is therefore capped at `max-w-xl`, below its own width, so it is only ever scaled down. And it is a JPEG of black lettering on white with no transparency, so dropped straight onto the black band it would have rendered as a white rectangle; it sits in a white panel instead, which is the same framing the two logos further down the page already use, and is what makes the white ground read as deliberate rather than as a mistake.
 
@@ -276,6 +276,44 @@ The heading went `sr-only` rather than being deleted. The logo already says the 
 Two small decisions inside it. The note sits **bottom left**, because `FlashToast` already owns the bottom right and a bar or a right-hand card would have sat under the toast the first time somebody saved a drawing. And the dismissal is kept in `localStorage` **rather than in a cookie** — recording that somebody read a notice about cookies by setting a cookie is exactly the kind of detail that makes the notice untrue. Both ends are wrapped in `try/catch`, since a privacy mode can refuse `localStorage` just as it can refuse the level store's IndexedDB; the honest failure is that the note appears again next visit.
 
 The `/cookies` link is in the footer only. It is deliberately not in `NAV_LINKS`, which feeds the top nav as well.
+
+---
+
+## 14. Layout fixes, and the last two pictures *(23 Aug, uncommitted)*
+
+**The About banner is white with a 5 px black frame.** It went through two attempts. First the logo was widened to fill the container — but that left the black *above and below* it untouched, because that black was never padding: the banner is a full-screen section with its content centred, so the empty space was the section's own height. Reducing padding could not have fixed it.
+
+So the white is now the banner. `p-[5px]` on the section is the entire black frame, and the panel inside is `flex-1`, which is the part that matters — centred content would have let the section's height reappear as black bands. The logo is capped at `max-w-4xl`, 896 px against the file's own 891 px, so it sits at roughly true size however wide the window gets instead of stretching soft.
+
+Two things had to follow the white: the tagline, and the scroll arrow. `ScrollCue` had `text-page` hard-coded, so it gained an `onLight` prop — the svg already drew in `currentColor`, so one class decides it. The home page passes nothing and keeps its white arrow on black.
+
+**The home page's last placeholder is gone.** `community.png` fills the "Play what others drew" section, so the dashed "Picture coming soon" branch was deleted rather than left behind unreachable. All four section images also gained `loading="lazy"` — they sit below the fold, and that new one is a 936 KB photograph.
+
+**The game's controls are vertically centred.** `lg:items-start` became `lg:items-center`. The column of sliders and buttons is far shorter than an 800 px canvas, so aligned to the top it sat level with the first row of the level and left a long empty gap beneath it. It now sits against the middle of the game, which is also roughly where your eyes already are.
+
+**The login page lost its black side panel.** It was a decorative half-screen saying the site's name to somebody who is already on the site; the form is the reason for the page. It is now a single card centred in both directions.
+
+That change had a catch worth recording: the form block carried its own `max-w-sm` *inside* the section, so deleting the panel alone would have left the form pinned to the left of a now-full-width container and looked like nothing had happened on desktop. The width moved onto the section, which the flex parent centres, and the block inside is plain `w-full`.
+
+---
+
+## 15. One picture, one file *(24 Aug, uncommitted)*
+
+Saving a level you played rather than made used to **copy its image**. One community level saved by fifty people meant fifty identical files — a 3 MB photo occupying 150 MB.
+
+The copy was deliberate, and the reason it was given does not survive inspection. It existed so the author's delete would "really remove their file" rather than leave their picture on display under someone else's name. But if fifty people had copied it, deleting the original removed one of fifty byte-identical files: the picture was still there, still on display, under fifty other names. The copy bought no deletion power at all. It only multiplied the storage.
+
+Images are now stored under the **SHA-256 of their own contents**, so identical bytes always resolve to the same path. Fifty saves are fifty rows — each keeping its own owner, title, speed and jump — pointing at one file. Identical *uploads* dedup for free, which the old random names could never do.
+
+Most of this was already built. `destroy()` and `AccountController` both checked whether another row still referenced a path before deleting the file, and `levels:prune` works from the set of referenced paths. Those guards simply stopped being defensive and became the mechanism.
+
+**One thing did have to change, and it is the subtle part.** Both guards counted *trashed* rows as references. That was harmless when every row owned its own file — the row deleting itself was the only match, which is what `whereKeyNot` was for. With one shared file it inverts: the first person to delete leaves a trashed row naming the file, and it pins that picture on disk **forever**, even after everyone who saved it has deleted it. The guards now count live rows only. Deleting is final here, as the page warns, so a trashed row is not a claim on the file — and a trashed row naming a file that is gone is normal, not a fault.
+
+`levels:dedupe` collapses what the old rule already wrote, with `--dry-run` to look first. It renames the survivor of each group to its content name rather than leaving it under a random one — otherwise a later upload of the same picture would not match it and the duplication would quietly begin again. Rows are repointed **before** the extras are deleted, so dying halfway leaves rows naming a file that exists rather than one that does not, and trashed rows are repointed too, since that is exactly what the guards and `prune` read.
+
+On the development database it turned **26 files into 8**, one picture having been stored fifteen times.
+
+Two bugs were caught by writing this rather than by running it. The command originally edited the moved path out of the list it matched rows on, so the one row whose file had just been renamed was the single row left behind pointing at nothing. And `--dry-run` counted the survivor of each group as a deletion, reporting 26 removals where the real answer was 18 — a dry run that miscounts is worse than none, because it is read as a decision.
 
 ---
 
@@ -299,7 +337,7 @@ The `/cookies` link is in the footer only. It is deliberately not in `NAV_LINKS`
 composer run dev            # server + queue + vite together
 composer run setup          # install, .env, key, migrate, npm install, build
 
-php artisan test --compact  # 100 tests
+php artisan test --compact  # 107 tests
 npm run test                # 54 tests (vitest — the pixel work and the level store)
 npm run build
 

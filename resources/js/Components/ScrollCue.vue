@@ -10,7 +10,11 @@
  */
 const props = defineProps({
     // The id of the element to scroll to when the arrow is clicked.
-    target: { type: String, required: true }
+    target: { type: String, required: true },
+
+    // A white banner needs a black arrow. The svg draws in currentColor, so
+    // this one class decides the whole thing.
+    onLight: { type: Boolean, default: false }
 });
 
 /**
@@ -44,7 +48,8 @@ function scrollToContent() {
     -->
     <button
         type="button"
-        class="absolute inset-x-0 bottom-8 mx-auto flex size-12 items-center justify-center text-page motion-safe:animate-bounce"
+        class="absolute inset-x-0 bottom-8 mx-auto flex size-12 items-center justify-center motion-safe:animate-bounce"
+        :class="onLight ? 'text-ink' : 'text-page'"
         aria-label="Scroll to the page content"
         @click="scrollToContent"
     >

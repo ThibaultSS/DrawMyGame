@@ -21,8 +21,7 @@ const reduceMotion =
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 // The how-it-works sections, as data: the alternating image side is then one
-// class binding instead of four hand-mirrored blocks of markup. A section with
-// no image yet renders a placeholder frame in its place.
+// class binding instead of four hand-mirrored blocks of markup.
 const SECTIONS = [
     {
         title: "Start Drawing!",
@@ -55,10 +54,8 @@ const SECTIONS = [
     },
     {
         title: "Play what others drew",
-        // Waiting on the artwork for this one. Until it arrives the section
-        // renders a placeholder frame rather than a broken image.
-        image: null,
-        alt: "Levels made by the community",
+        image: "/assets/community.png",
+        alt: "Two children playing a hand-drawn level on a laptop",
         paragraphs: [
             "You are not the only one drawing. Every level someone decides to share ends up in the community gallery, and all of them are free to play. Some are careful little puzzles with platforms placed exactly where they need to be, others are wild scribbles that somehow still work. Head to the community page and you can search through them by title or by the person who made them, and sort by the newest levels or by the ones everybody likes most.",
             "Playing someone else's level works exactly like playing your own. Same arrow keys, same goal, same spikes to keep away from. The only difference is that you have no idea what is coming, which is half the fun. If a level made you laugh or made you rage quit, you can give it a thumbs up or a thumbs down while you play it. That needs an account and you get one vote per level, so the rankings mean something."
@@ -132,22 +129,15 @@ const SECTIONS = [
                 class="flex flex-col gap-8 md:flex-row md:items-center md:gap-12"
                 :class="{ 'md:flex-row-reverse': index % 2 === 1 }"
             >
+                <!-- Below the fold, and one of these is a 936 KB photograph,
+                     so none of them are fetched until they are scrolled to. -->
                 <img
-                    v-if="section.image"
                     :src="section.image"
                     :alt="section.alt"
                     class="w-full border border-sub md:w-1/2"
+                    loading="lazy"
+                    decoding="async"
                 >
-
-                <!-- Dashed, like the upload dropzone, so it reads as a space
-                     waiting to be filled rather than as a picture that failed
-                     to load. -->
-                <div
-                    v-else
-                    class="flex aspect-4/3 w-full items-center justify-center border border-dashed border-sub text-sm md:w-1/2"
-                >
-                    Picture coming soon
-                </div>
 
                 <div class="md:w-1/2">
                     <h2 class="text-2xl font-semibold tracking-tight">{{ section.title }}</h2>

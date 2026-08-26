@@ -53,13 +53,16 @@ const SECTIONS = [
     <AppLayout>
 
         <!--
-            Built like the home page's hero, minus the video. bg-ink is the
-            ground rather than a fallback: the logo is a contained panel sitting
-            on it, not a picture stretched across it.
-        -->
-        <section class="relative flex min-h-[calc(100svh_-_5rem)] items-center justify-center overflow-hidden bg-ink">
+            The black is a 5 px frame, not a ground: p-[5px] on the section is
+            the whole of it, and the white panel below fills everything inside.
 
-            <div class="relative flex w-full max-w-6xl flex-col items-center gap-8 px-6 py-24 text-center text-page">
+            The panel has to be flex-1 rather than centred content, or the
+            section's height reappears as black above and below it — which is
+            where that black came from before, not from padding.
+        -->
+        <section class="relative flex min-h-[calc(100svh_-_5rem)] flex-col overflow-hidden bg-ink p-[5px]">
+
+            <div class="relative flex flex-1 flex-col items-center justify-center gap-8 bg-page px-8 py-16 text-center text-ink">
 
                 <!--
                     The logo already says the site's name, so a matching heading
@@ -71,21 +74,17 @@ const SECTIONS = [
                 </h1>
 
                 <!--
-                    Black lettering on white with no transparency, so it sits in
-                    a white panel rather than directly on the black band — the
-                    same framing the two logos further down the page use, which
-                    is what makes the white ground read as deliberate.
-
-                    max-w-xl is below the file's own 891 px, so the logo is only
-                    ever scaled down, never stretched and softened.
+                    max-w-4xl is 896 px against the file's own 891 px, so the
+                    logo sits at roughly its true size however wide the window
+                    gets. Without the cap it would stretch the full width of the
+                    panel and go soft.
                 -->
-                <div v-if="BANNER.image" class="bg-page p-8 md:p-12">
-                    <img
-                        :src="BANNER.image"
-                        :alt="BANNER.alt"
-                        class="w-full max-w-xl"
-                    >
-                </div>
+                <img
+                    v-if="BANNER.image"
+                    :src="BANNER.image"
+                    :alt="BANNER.alt"
+                    class="w-full max-w-4xl"
+                >
 
                 <p class="max-w-xl text-lg">
                     A bachelor's project that turns a drawing into a game you can play.
@@ -93,7 +92,8 @@ const SECTIONS = [
 
             </div>
 
-            <ScrollCue target="page-content" />
+            <!-- Black, because it is sitting on the white panel now. -->
+            <ScrollCue target="page-content" on-light />
         </section>
 
         <div id="page-content" class="mx-auto flex w-full max-w-6xl flex-col gap-20 px-6 py-16">

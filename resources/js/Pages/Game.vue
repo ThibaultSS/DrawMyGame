@@ -239,9 +239,16 @@ function vote(value) {
     <Head title="Game" />
 
     <AppLayout>
-        <div class="mx-auto flex w-full max-w-[1560px] flex-col gap-6 px-6 py-10 lg:flex-row lg:items-start">
+        <!--
+            lg:items-center rather than items-start: the controls column is far
+            shorter than the canvas, so aligned to the top it sat up by the
+            first row of the level with a long empty gap under it.
+        -->
+        <div class="mx-auto flex w-full max-w-[1560px] flex-col gap-6 px-6 py-10 lg:flex-row lg:items-center">
 
-            <div class="relative w-full lg:flex-1">
+            <!-- The frame hugs the canvas: no padding, like the bordered
+                 images elsewhere on the site. -->
+            <div class="relative w-full border border-sub lg:flex-1">
                 <!-- Phaser mounts its canvas in here (config.parent). -->
                 <div id="game-container" class="w-full"></div>
 
@@ -257,7 +264,7 @@ function vote(value) {
                 narrow screens it drops underneath, where a side column would
                 leave the game too small to play.
             -->
-            <div class="flex w-full flex-col gap-4 text-sm lg:w-56 lg:shrink-0">
+            <div class="flex w-full flex-col gap-4 border border-sub p-4 text-sm lg:w-64 lg:shrink-0">
 
                 <button
                     v-if="user"

@@ -878,11 +878,12 @@ class GameTest extends TestCase
         Storage::disk('local')->assertMissing('levels/mine.jpg');
     }
 
-    // 17b. Saving someone else's level takes a copy of the file, so the two
-    // drawings do not share one image: without this the original owner's
-    // delete became a no-op, and their image stayed on display under another
-    // name.
-    public function test_saving_someone_elses_level_copies_the_file()
+    // 17b. Saving someone else's level points at the file they already have
+    // instead of duplicating it: one picture is one file however many people
+    // save it. Copying used to be justified as letting the author's delete
+    // really remove their picture, but with fifty copies it removed one of
+    // fifty identical files and changed nothing.
+    public function test_saving_someone_elses_level_shares_the_file()
     {
         Storage::fake('local');
         Storage::disk('local')->put('levels/theirs.jpg', 'image-bytes');
@@ -914,15 +915,68 @@ class GameTest extends TestCase
 
         $copy = SavedDrawing::where('user_id', $otherUser->id)->firstOrFail();
 
-        $this->assertNotSame($original->image_path, $copy->image_path);
-        Storage::disk('local')->assertExists($copy->image_path);
+        $this->assertSame($original->image_path, $copy->image_path);
+        $this->assertCount(1, Storage::disk('local')->files('levels'));
 
-        // The owner deleting their drawing really removes their file, and
-        // leaves the copy untouched.
+        // The author deleting their drawing takes their drawing away, but not
+        // the file: somebody else's drawing is still pointing at it, and their
+        // image has to keep loading.
         $this->actingAs($owner)->delete("/drawing/{$original->id}");
 
-        Storage::disk('local')->assertMissing('levels/theirs.jpg');
         Storage::disk('local')->assertExists($copy->image_path);
+        $this->actingAs($otherUser)->get("/drawings/{$copy->id}/image")->assertOk();
+
+        // Once the last drawing naming it is gone, so is the file.
+        $this->actingAs($otherUser)->delete("/drawing/{$copy->id}");
+
+        Storage::disk('local')->assertMissing('levels/theirs.jpg');
+    }
+
+    // 17b-ii. The same rule on the upload path: the file is named after its own
+    // contents, so two people uploading the same picture write one file
+    public function test_uploading_the_same_picture_twice_stores_one_file()
+    {
+        Storage::fake('local');
+
+        // Two fakes of the same size are the same bytes, which is the whole
+        // point: the path is the hash of those bytes.
+        foreach ([User::factory()->create(), User::factory()->create()] as $user) {
+            $this->actingAs($user)
+                ->withSession($this->levelColours())
+                ->post('/save-drawing', [
+                    'levelImage' => UploadedFile::fake()->image('level.png', 8, 8),
+                    'speed' => 5,
+                    'jumpHeight' => 10,
+                ]);
+        }
+
+        $this->assertSame(2, SavedDrawing::count());
+        $this->assertCount(1, Storage::disk('local')->files('levels'));
+        $this->assertSame(
+            SavedDrawing::first()->image_path,
+            SavedDrawing::orderByDesc('id')->first()->image_path
+        );
+    }
+
+    // 17b-iii. Two different pictures are still two files — the point is to
+    // stop duplicating one image, not to merge unrelated ones
+    public function test_uploading_different_pictures_stores_a_file_each()
+    {
+        Storage::fake('local');
+
+        $user = User::factory()->create();
+
+        foreach ([['one.png', 8], ['two.png', 16]] as [$name, $size]) {
+            $this->actingAs($user)
+                ->withSession($this->levelColours())
+                ->post('/save-drawing', [
+                    'levelImage' => UploadedFile::fake()->image($name, $size, $size),
+                    'speed' => 5,
+                    'jumpHeight' => 10,
+                ]);
+        }
+
+        $this->assertCount(2, Storage::disk('local')->files('levels'));
     }
 
     // 17c. After a save the game page comes back knowing which drawing it is
@@ -1258,6 +1312,22 @@ class GameTest extends TestCase
         $this->artisan('levels:prune')->assertSuccessful();
 
         Storage::disk('local')->assertExists('levels/fresh.jpg');
+    }
+
+    /**
+     * The colours /save-drawing expects the session to be holding, since the
+     * whole game is saved with the picture.
+     *
+     * @return array<string, string>
+     */
+    private function levelColours(): array
+    {
+        return [
+            'platformColor' => '#ff0000',
+            'goalColor' => '#00ff00',
+            'playerColor' => '#0000ff',
+            'hazardColor' => '#000000',
+        ];
     }
 
     /**

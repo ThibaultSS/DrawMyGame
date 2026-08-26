@@ -80,9 +80,11 @@ class AccountController extends Controller
 
             $draft->forceDelete();
 
-            // Saving someone else's level copies the file, so in practice each
-            // row owns its own; this is what makes that safe to rely on.
-            $stillReferenced = SavedDrawing::withTrashed()
+            // One picture is one file and several drawings may point at it, so
+            // the draft's image only goes if nothing else still names it. Live
+            // rows only, for the same reason as destroy(): a trashed row would
+            // otherwise pin a shared file forever.
+            $stillReferenced = SavedDrawing::query()
                 ->where('image_path', $path)
                 ->exists();
 

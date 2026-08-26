@@ -1,7 +1,6 @@
 <script setup>
 /**
- * Login and register, split screen: a black panel on the left, the form on the
- * right.
+ * Login and register, on one centred card.
  *
  * Both forms use Inertia's useForm, which is the whole point of the migration
  * here: a failed attempt no longer reloads the page, so validation errors appear
@@ -55,24 +54,13 @@ function fieldClass(error) {
     <Head :title="mode === 'login' ? 'Log in' : 'Create an account'" />
 
     <AppLayout>
-        <div class="grid min-h-[32rem] grid-cols-1 md:grid-cols-2">
+        <div class="flex min-h-[32rem] flex-col items-center justify-center px-6 py-16">
 
-            <!-- Left panel. Hidden on small screens: the form matters, this does not. -->
-            <aside class="hidden bg-ink px-10 py-16 text-page md:flex md:flex-col md:items-center md:justify-center">
-                <div class="w-full max-w-sm">
-                    <p class="text-3xl font-semibold tracking-tight">DrawMyGame</p>
-                    <p class="mt-4 text-lg">Draw a level.<br>Play it.</p>
-                </div>
-            </aside>
-
-            <!--
-                items-center matters: without it the max-w-sm block below stretches
-                from the left edge of its half and the whole page reads as shoved
-                to one side. Both halves centre their content, so the two blocks
-                sit an equal distance from the seam.
-            -->
-            <section class="flex flex-col items-center justify-center px-6 py-12 md:px-12">
-                <div class="w-full max-w-sm">
+            <!-- max-w-sm here rather than on the block inside: the flex
+                 parent centres this, and a full-width section would leave the
+                 form itself pinned to the left edge. -->
+            <section class="w-full max-w-md border border-sub p-8">
+                <div class="w-full">
 
                     <h1 class="text-2xl font-semibold tracking-tight">
                         {{ mode === "login" ? "Log in" : "Create an account" }}
