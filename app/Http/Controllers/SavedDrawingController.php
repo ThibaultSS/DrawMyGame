@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Http\Requests\PublishDrawingRequest;
 use App\Http\Requests\SaveDrawingRequest;
 use App\Models\DrawingVote;
+use App\Models\LevelFavourite;
 use App\Models\SavedDrawing;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -61,17 +62,13 @@ class SavedDrawingController extends Controller
             return back()->with('message', 'Drawing updated.');
         }
 
-        // Saving someone else's level points at the file they already have
-        // rather than duplicating it. Copying used to be justified by letting
-        // the author's delete really remove their picture — but if fifty people
-        // had copied it, deleting the original left fifty byte-identical files
-        // behind, so it bought no such thing and only multiplied the storage.
-        //
-        // Anything else is a level the browser was holding, arriving here as an
-        // ordinary upload and stored under the hash of its own contents.
-        $path = $replayed
-            ? $replayed->image_path
-            : $this->storeByContent($request->file('levelImage'));
+        // Saving someone else's level is favouriting it now, not copying it, so
+        // the only drawing this route creates is one the browser was holding.
+        // A 403 rather than a 404: the level is published, so its existence is
+        // not a secret, and "that one is not yours" is the honest answer.
+        abort_if($replayed !== null, 403);
+
+        $path = $this->storeByContent($request->file('levelImage'));
 
         $drawing = $this->createDrawing($path, $settings);
 
@@ -153,13 +150,19 @@ class SavedDrawingController extends Controller
             return redirect()->route('game-setting');
         }
 
+        // A level you kept opens the way you tuned it, not the way its author
+        // did — which is what copying it into your account used to buy.
+        $mine = Auth::check()
+            ? $drawing->favourites()->where('user_id', Auth::id())->first()
+            : null;
+
         session([
             'platformColor' => $drawing->platform_color,
             'goalColor' => $drawing->goal_color,
             'playerColor' => $drawing->player_color,
             'hazardColor' => $drawing->hazard_color,
-            'gameSpeed' => $drawing->speed ?? 5,
-            'jumpHeight' => $drawing->jump_height ?? 10,
+            'gameSpeed' => $mine?->speed ?? $drawing->speed ?? 5,
+            'jumpHeight' => $mine?->jump_height ?? $drawing->jump_height ?? 10,
         ]);
 
         return redirect()->route('game');
@@ -178,6 +181,10 @@ class SavedDrawingController extends Controller
             ->withCount([
                 'votes as likes_count' => fn (Builder $votes) => $votes->where('value', DrawingVote::LIKE),
                 'votes as dislikes_count' => fn (Builder $votes) => $votes->where('value', DrawingVote::DISLIKE),
+                // How many finished it, out of how many tried: a card's only
+                // hint at how hard a level actually is.
+                'plays as beaten_count' => fn (Builder $plays) => $plays->whereNotNull('best_time_ms'),
+                'plays as attempted_count',
             ])
             ->when($search !== '', fn (Builder $query) => $query->where(
                 // Nested on purpose: without the grouping the orWhere would
@@ -208,6 +215,8 @@ class SavedDrawingController extends Controller
                     'author' => $drawing->user?->username ?? 'Unknown publisher',
                     'likes' => $drawing->likes_count,
                     'dislikes' => $drawing->dislikes_count,
+                    'beaten' => $drawing->beaten_count,
+                    'attempted' => $drawing->attempted_count,
                 ]),
                 'filters' => ['search' => $search, 'sort' => $sort],
             ]);
@@ -222,6 +231,20 @@ class SavedDrawingController extends Controller
 
         // Only the fields the page draws. Shared props are serialised into the
         // page source, so user_id and the timestamps have no business there.
+        // Levels somebody else made that you kept.
+        //
+        // A favourite outlives what it points at: drawings are soft-deleted and
+        // can be unpublished, and neither fires the foreign key's cascade.
+        // whereHas keeps the section from rendering cards that 404 when clicked.
+        $favourites = LevelFavourite::query()
+            ->where('user_id', Auth::id())
+            ->whereHas('drawing', fn (Builder $drawing) => $drawing->where('published', true))
+            ->with('drawing.user')
+            ->latest()
+            // Its own page name. Both paginators default to ?page, so without
+            // this, paging one list silently pages the other as well.
+            ->paginate(self::PER_PAGE, ['*'], 'favouritesPage');
+
         return $this->pageOutOfRange($drawings, 'account')
             ?? Inertia::render('Account', [
                 'drawings' => $drawings->through(fn (SavedDrawing $drawing): array => [
@@ -232,6 +255,12 @@ class SavedDrawingController extends Controller
                     // published level starts from what it already says.
                     'title' => $drawing->title,
                     'description' => $drawing->description,
+                ]),
+                'favourites' => $favourites->through(fn (LevelFavourite $favourite): array => [
+                    'id' => $favourite->drawing->id,
+                    'image' => route('drawings.image', $favourite->drawing),
+                    'title' => $favourite->drawing->title,
+                    'author' => $favourite->drawing->user?->username ?? 'Unknown publisher',
                 ]),
             ]);
     }

@@ -6,7 +6,9 @@ use App\Http\Controllers\DrawnLevelController;
 use App\Http\Controllers\GameController;
 use App\Http\Controllers\GameSettingController;
 use App\Http\Controllers\GoogleController;
+use App\Http\Controllers\LevelFavouriteController;
 use App\Http\Controllers\LevelImageController;
+use App\Http\Controllers\LevelPlayController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\LogoutController;
 use App\Http\Controllers\RegisteredUserController;
@@ -83,6 +85,23 @@ Route::middleware('auth')->group(function () {
     // Liking or disliking a published level, from the game page while playing
     // it. Signing in is what makes one vote per person enforceable.
     Route::post('/drawing/{drawing}/vote', DrawingVoteController::class)->name('drawings.vote');
+
+    // Keeping somebody else's level to play again. This is what saving another
+    // person's level does now: it used to copy the drawing into your account,
+    // which made you its owner and let you republish it as your own.
+    Route::post('/drawing/{drawing}/favourite', [LevelFavouriteController::class, 'store'])->name('drawings.favourite');
+    Route::delete('/drawing/{drawing}/favourite', [LevelFavouriteController::class, 'destroy'])->name('drawings.unfavourite');
+
+    // Attempts and finishing times. Throttled in their own named bucket: these
+    // fire from the game itself rather than from a click, so a stuck page could
+    // otherwise hammer them, and an unnamed throttle would share one counter
+    // with every other form on the site.
+    Route::post('/drawing/{drawing}/attempt', [LevelPlayController::class, 'attempt'])
+        ->middleware('throttle:60,1,plays')
+        ->name('drawings.attempt');
+    Route::post('/drawing/{drawing}/completed', [LevelPlayController::class, 'complete'])
+        ->middleware('throttle:60,1,plays')
+        ->name('drawings.completed');
 
     Route::delete('/drawing/{drawing}', [SavedDrawingController::class, 'destroy'])->name('drawings.destroy');
 });

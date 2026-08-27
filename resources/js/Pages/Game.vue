@@ -33,6 +33,17 @@ const props = defineProps({
     dislikes: { type: Number, default: 0 },
     myVote: { type: Number, default: null },
     canVote: { type: Boolean, default: false },
+    // Somebody else's level can be kept to play again. Saving it used to make
+    // a copy you owned; now it stays theirs and only the feel is yours.
+    isFavourite: { type: Boolean, default: false },
+    canFavourite: { type: Boolean, default: false },
+    // How this level has been played. Empty for a level the browser is holding:
+    // there is nothing to record against until it has been saved.
+    beaten: { type: Number, default: 0 },
+    attempted: { type: Number, default: 0 },
+    myBestMs: { type: Number, default: null },
+    fastest: { type: Array, default: () => [] },
+    canRecord: { type: Boolean, default: false },
     platformColor: { type: String, required: true },
     goalColor: { type: String, required: true },
     playerColor: { type: String, required: true },
@@ -77,11 +88,20 @@ onMounted(async () => {
 
     loadConfetti();
 
+    // Listen before booting: create() starts the clock, and a very short level
+    // could in principle be won before a listener added afterwards existed.
+    if (recordsPlays.value) {
+        document.addEventListener("level-won", recordWin);
+        recordAttempt();
+    }
+
     const { bootGame } = await import("../game/main.js");
     game = bootGame();
 });
 
 onUnmounted(() => {
+    document.removeEventListener("level-won", recordWin);
+
     // Stops the render loop and removes the canvas. Without this, leaving the
     // page and coming back would stack a second game on top of the first.
     game?.destroy(true);
@@ -168,6 +188,15 @@ function retry() {
  * Saving
  * ------------------------------------------------------------------ */
 
+/**
+ * Whether this device is driven by a finger. Read at setup rather than on
+ * mount, because the engine looks the buttons up by id as it boots — decided a
+ * tick later they would not be in the DOM yet and nothing would be bound.
+ */
+const isTouch =
+    typeof window !== "undefined" &&
+    window.matchMedia("(pointer: coarse)").matches;
+
 const saving = ref(false);
 
 /**
@@ -205,6 +234,68 @@ function saveDrawing() {
         onStart: () => (saving.value = true),
         onFinish: () => (saving.value = false)
     });
+}
+
+/**
+ * Keep, or stop keeping, somebody else's level.
+ *
+ * The sliders' current values go with it, so the level opens at your feel next
+ * time rather than its author's — which is the part copying it used to buy.
+ */
+function toggleFavourite() {
+    const options = { preserveState: true, preserveScroll: true };
+
+    if (props.isFavourite) {
+        router.delete(`/drawing/${props.drawingId}/favourite`, options);
+
+        return;
+    }
+
+    router.post(
+        `/drawing/${props.drawingId}/favourite`,
+        { speed: speedValue.value, jumpHeight: jumpValue.value },
+        options
+    );
+}
+
+/**
+ * Whether this play is worth recording: a level the server knows about, and a
+ * visitor a time can belong to.
+ */
+const recordsPlays = computed(() => Boolean(props.drawingId) && props.canRecord);
+
+/** 92_512 ms as "1:32.5" — the shape a time is read in. */
+function formatTime(ms) {
+    const total = ms / 1000;
+    const minutes = Math.floor(total / 60);
+    const seconds = (total % 60).toFixed(1).padStart(4, "0");
+
+    return `${minutes}:${seconds}`;
+}
+
+/**
+ * Records that this level was played, and how it went.
+ *
+ * Only for a saved level and only when signed in, because a time has to belong
+ * to somebody. The engine says when the level was won by dispatching level-won
+ * on the document; it does not know this page exists.
+ */
+function recordAttempt() {
+    router.post(`/drawing/${props.drawingId}/attempt`, {}, {
+        preserveState: true,
+        preserveScroll: true,
+        only: ["attempted"]
+    });
+}
+
+function recordWin(event) {
+    router.post(
+        `/drawing/${props.drawingId}/completed`,
+        { timeMs: event.detail.ms },
+        // The standings are what changed, so only those come back — the level
+        // itself must not be re-sent under a running game.
+        { preserveState: true, preserveScroll: true, only: ["beaten", "attempted", "myBestMs", "fastest"] }
+    );
 }
 
 function goBack() {
@@ -246,16 +337,90 @@ function vote(value) {
         -->
         <div class="mx-auto flex w-full max-w-[1560px] flex-col gap-6 px-6 py-10 lg:flex-row lg:items-center">
 
-            <!-- The frame hugs the canvas: no padding, like the bordered
-                 images elsewhere on the site. -->
-            <div class="relative w-full border border-sub lg:flex-1">
-                <!-- Phaser mounts its canvas in here (config.parent). -->
-                <div id="game-container" class="w-full"></div>
+            <div class="flex w-full flex-col gap-4 lg:flex-1">
 
-                <!-- Shown until the scene's create() hides it. -->
-                <div id="loading-screen" class="absolute inset-0 flex items-center justify-center">
-                    <p class="animate-pulse text-lg">Loading…</p>
+                <!-- The frame hugs the canvas: no padding, like the bordered
+                     images elsewhere on the site. -->
+                <div class="relative w-full border border-sub">
+                    <!-- Phaser mounts its canvas in here (config.parent). -->
+                    <div id="game-container" class="w-full"></div>
+
+                    <!-- Shown until the scene's create() hides it. -->
+                    <div id="loading-screen" class="absolute inset-0 flex items-center justify-center">
+                        <p class="animate-pulse text-lg">Loading…</p>
+                    </div>
                 </div>
+
+                <!--
+                    The engine binds these by id, so the ids are part of its
+                    contract like speedSlider and jumpSlider.
+
+                    touch-none stops a press from scrolling the page, and
+                    select-none stops a quick double tap selecting the arrow
+                    glyph instead of jumping.
+                -->
+                <div v-if="isTouch" class="flex items-center justify-between gap-4 select-none">
+                    <div class="flex gap-4">
+                        <button
+                            id="touch-left"
+                            type="button"
+                            class="flex size-16 touch-none items-center justify-center border border-sub text-2xl"
+                            aria-label="Move left"
+                        >&larr;</button>
+
+                        <button
+                            id="touch-right"
+                            type="button"
+                            class="flex size-16 touch-none items-center justify-center border border-sub text-2xl"
+                            aria-label="Move right"
+                        >&rarr;</button>
+                    </div>
+
+                    <button
+                        id="touch-jump"
+                        type="button"
+                        class="flex size-16 touch-none items-center justify-center border border-sub text-2xl"
+                        aria-label="Jump"
+                    >&uarr;</button>
+                </div>
+
+                <!-- Only a saved level has anything to record against: a level
+                     the browser is holding is not a thing anyone else can
+                     have played. -->
+                <section v-if="drawingId" class="border border-sub p-4 text-sm">
+
+                    <h2 class="font-medium">Times</h2>
+
+                    <p class="mt-2">
+                        <template v-if="attempted > 0">
+                            Beaten by {{ beaten }} of {{ attempted }} who tried.
+                        </template>
+                        <template v-else>
+                            Nobody has finished this level yet. Be the first.
+                        </template>
+                    </p>
+
+                    <p v-if="myBestMs !== null" class="mt-1">
+                        Your best: {{ formatTime(myBestMs) }}
+                    </p>
+
+                    <p v-else-if="! canRecord" class="mt-1">
+                        Sign in to have your time recorded.
+                    </p>
+
+                    <ol v-if="fastest.length > 0" class="mt-4 flex flex-col gap-1">
+                        <li
+                            v-for="(entry, index) in fastest"
+                            :key="index"
+                            class="flex justify-between gap-4"
+                        >
+                            <span>{{ index + 1 }}. {{ entry.username }}</span>
+                            <span>{{ formatTime(entry.ms) }}</span>
+                        </li>
+                    </ol>
+
+                </section>
+
             </div>
 
             <!--
@@ -266,14 +431,29 @@ function vote(value) {
             -->
             <div class="flex w-full flex-col gap-4 border border-sub p-4 text-sm lg:w-64 lg:shrink-0">
 
+                <!-- Your own level, or one the browser is holding: saving keeps
+                     the picture and the whole game with it. -->
                 <button
-                    v-if="user"
+                    v-if="user && ! canFavourite"
                     type="button"
                     class="w-full bg-ink px-4 py-2 text-page disabled:opacity-50"
                     :disabled="saving"
                     @click="saveDrawing"
                 >
                     {{ saving ? "Saving…" : "Save Drawing" }}
+                </button>
+
+                <!-- Somebody else's: keeping it leaves it theirs. Filled in
+                     when it is already kept, like the vote buttons. -->
+                <button
+                    v-else-if="canFavourite"
+                    type="button"
+                    class="w-full px-4 py-2"
+                    :class="isFavourite ? 'bg-ink text-page' : 'border border-sub'"
+                    :aria-pressed="isFavourite"
+                    @click="toggleFavourite"
+                >
+                    {{ isFavourite ? "Saved to your account" : "Save to your account" }}
                 </button>
 
                 <!-- The labels sit above the sliders: a narrow column has

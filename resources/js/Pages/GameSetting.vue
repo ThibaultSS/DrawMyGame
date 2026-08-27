@@ -10,8 +10,10 @@
  * all four colours are picked. The old page happily posted an empty form and the
  * game then silently broke, because the engine had no colours to match against.
  */
-import { computed, onMounted, onUnmounted, ref } from "vue";
+import { computed, nextTick, onMounted, onUnmounted, ref } from "vue";
 import { Head, router, useForm } from "@inertiajs/vue3";
+
+import { detectRoleIssues, listOfRoles } from "../game/roleCheck.js";
 
 import AppLayout from "../Layouts/AppLayout.vue";
 import { getLevel } from "../levelStore.js";
@@ -64,10 +66,10 @@ onUnmounted(() => {
 // is still a level, and demanding one meant inventing a danger to get past
 // this page.
 const ROLES = [
-    { key: "platform", label: "Pick Platform", required: true },
-    { key: "goal", label: "Pick Goal", required: true },
-    { key: "player", label: "Pick Player", required: true },
-    { key: "hazard", label: "Pick Hazard", required: false }
+    { key: "platform", label: "Pick Platform", name: "platform", required: true },
+    { key: "goal", label: "Pick Goal", name: "goal", required: true },
+    { key: "player", label: "Pick Player", name: "player", required: true },
+    { key: "hazard", label: "Pick Hazard", name: "hazard", required: false }
 ];
 
 // The role the next click on the image will colour. Null until a button is
@@ -75,6 +77,11 @@ const ROLES = [
 const currentSelection = ref(null);
 
 const preview = ref(null);
+
+// Set when the engine would not find one of the roles in this photo. Cleared
+// on every attempt, so a fixed pick does not keep showing an old complaint.
+const validationError = ref("");
+const checking = ref(false);
 
 const form = useForm({
     platformColor: "",
@@ -99,16 +106,7 @@ function pickColor(event) {
     }
 
     const image = preview.value;
-
-    // Draw at naturalWidth/naturalHeight, not the displayed size: the pixel has
-    // to come from the original photo, because the game engine will match
-    // colours against that same file.
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d");
-
-    canvas.width = image.naturalWidth;
-    canvas.height = image.naturalHeight;
-    ctx.drawImage(image, 0, 0);
+    const ctx = photoContext();
 
     // The click lands in displayed coordinates; scale it back up to the
     // original image's pixel grid before sampling.
@@ -127,7 +125,70 @@ function pickColor(event) {
     form[`${currentSelection.value}Color`] = hex;
 }
 
-function submit() {
+/**
+ * The photo on an offscreen canvas at its true size.
+ *
+ * naturalWidth/naturalHeight, not the displayed size: both the eyedropper and
+ * the check have to work on the original pixels, because that is the file the
+ * engine will read.
+ */
+function photoContext() {
+    const image = preview.value;
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+
+    canvas.width = image.naturalWidth;
+    canvas.height = image.naturalHeight;
+    ctx.drawImage(image, 0, 0);
+
+    return ctx;
+}
+
+/**
+ * Runs the engine's own detector over the photo before starting.
+ *
+ * This is where the failure used to be silent: colours that never resolve into
+ * shapes produced a level with no player in it and no explanation. The drawing
+ * page has always checked this; the photo page did not.
+ *
+ * The wording differs from the drawing page's on purpose. There, "too small"
+ * means you drew a small mark. Here you picked a colour out of a photograph, so
+ * the useful advice is about the colour and the area, not about drawing.
+ */
+async function submit() {
+    validationError.value = "";
+    checking.value = true;
+
+    // A phone photo is a full detector pass over several megapixels, so let the
+    // button repaint as "Checking…" before the main thread is taken.
+    await nextTick();
+
+    const image = preview.value;
+    const { data } = photoContext().getImageData(0, 0, image.naturalWidth, image.naturalHeight);
+
+    const { missing, tooSmall } = detectRoleIssues(
+        data,
+        image.naturalWidth,
+        image.naturalHeight,
+        ROLES
+            .filter((role) => role.required)
+            .map((role) => ({ key: role.key, color: form[`${role.key}Color`], label: role.name }))
+    );
+
+    checking.value = false;
+
+    // For a photo the two lists are the same problem: the colour is there,
+    // since it was picked out of this very image, but nothing big or solid
+    // enough came of it.
+    const unfound = [...missing, ...tooSmall];
+
+    if (unfound.length > 0) {
+        validationError.value =
+            `The game could not find ${listOfRoles(unfound)} in this photo. Pick a bolder colour, or one that covers a larger area — small or faint marks are ignored.`;
+
+        return;
+    }
+
     form
         .transform((data) => ({
             ...data,
@@ -191,10 +252,14 @@ function submit() {
                 <button
                     type="submit"
                     class="bg-ink px-6 py-2 text-page disabled:opacity-50"
-                    :disabled="! allPicked || form.processing"
+                    :disabled="! allPicked || checking || form.processing"
                 >
-                    Start Game
+                    {{ checking ? "Checking…" : "Start Game" }}
                 </button>
+
+                <p v-if="validationError" class="max-w-md text-center text-sm text-error" role="alert">
+                    {{ validationError }}
+                </p>
 
                 <p v-if="firstError" class="text-sm text-error" role="alert">
                     {{ firstError }}

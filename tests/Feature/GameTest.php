@@ -71,7 +71,7 @@ class GameTest extends TestCase
             ->has('drawings.data', 1)
             ->has('drawings.data.0', fn (AssertableInertia $drawing) => $drawing
                 ->where('author', $author->username)
-                ->hasAll(['id', 'image', 'title', 'description', 'likes', 'dislikes'])
+                ->hasAll(['id', 'image', 'title', 'description', 'likes', 'dislikes', 'beaten', 'attempted'])
             )
         );
     }
@@ -878,12 +878,11 @@ class GameTest extends TestCase
         Storage::disk('local')->assertMissing('levels/mine.jpg');
     }
 
-    // 17b. Saving someone else's level points at the file they already have
-    // instead of duplicating it: one picture is one file however many people
-    // save it. Copying used to be justified as letting the author's delete
-    // really remove their picture, but with fifty copies it removed one of
-    // fifty identical files and changed nothing.
-    public function test_saving_someone_elses_level_shares_the_file()
+    // 17b. Saving someone else's level is refused: keeping another person's
+    // level is favouriting it now, which leaves it theirs. It used to copy the
+    // drawing into your account, making you its owner and letting you publish
+    // it under your own name.
+    public function test_saving_someone_elses_level_is_refused()
     {
         Storage::fake('local');
         Storage::disk('local')->put('levels/theirs.jpg', 'image-bytes');
@@ -903,33 +902,21 @@ class GameTest extends TestCase
             'jump_height' => 10,
         ]);
 
-        // Play the published level, then save it. The server already has that
-        // image, so the browser names the drawing rather than uploading a file
-        // it never held.
         $this->actingAs($otherUser)->get("/play/{$original->id}");
-        $this->actingAs($otherUser)->post('/save-drawing', [
-            'drawingId' => $original->id,
-            'speed' => 5,
-            'jumpHeight' => 10,
-        ]);
 
-        $copy = SavedDrawing::where('user_id', $otherUser->id)->firstOrFail();
+        // A 403 rather than a 404: the level is published, so its existence is
+        // not a secret and there is nothing to hide by pretending otherwise.
+        $this->actingAs($otherUser)
+            ->post('/save-drawing', [
+                'drawingId' => $original->id,
+                'speed' => 5,
+                'jumpHeight' => 10,
+            ])
+            ->assertForbidden();
 
-        $this->assertSame($original->image_path, $copy->image_path);
+        // No second drawing, and no second file.
+        $this->assertSame(1, SavedDrawing::count());
         $this->assertCount(1, Storage::disk('local')->files('levels'));
-
-        // The author deleting their drawing takes their drawing away, but not
-        // the file: somebody else's drawing is still pointing at it, and their
-        // image has to keep loading.
-        $this->actingAs($owner)->delete("/drawing/{$original->id}");
-
-        Storage::disk('local')->assertExists($copy->image_path);
-        $this->actingAs($otherUser)->get("/drawings/{$copy->id}/image")->assertOk();
-
-        // Once the last drawing naming it is gone, so is the file.
-        $this->actingAs($otherUser)->delete("/drawing/{$copy->id}");
-
-        Storage::disk('local')->assertMissing('levels/theirs.jpg');
     }
 
     // 17b-ii. The same rule on the upload path: the file is named after its own

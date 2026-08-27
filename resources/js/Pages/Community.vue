@@ -158,6 +158,15 @@ function applyFilters() {
                                 <span>By {{ drawing.author }}</span>
                                 <span>{{ drawing.likes }} likes · {{ drawing.dislikes }} dislikes</span>
                             </p>
+
+                            <p class="text-sm">
+                                <template v-if="drawing.attempted > 0">
+                                    Beaten by {{ drawing.beaten }} of {{ drawing.attempted }}
+                                </template>
+                                <template v-else>
+                                    Not played yet
+                                </template>
+                            </p>
                         </Link>
                     </li>
                 </ul>

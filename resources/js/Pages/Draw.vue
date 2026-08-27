@@ -17,7 +17,7 @@ import { onMounted, ref } from "vue";
 import { Head, router } from "@inertiajs/vue3";
 
 import AppLayout from "../Layouts/AppLayout.vue";
-import { detectShapes, hexToRgb } from "../game/colorDetection.js";
+import { detectRoleIssues, roleIssueMessage } from "../game/roleCheck.js";
 import { putLevel } from "../levelStore.js";
 
 const props = defineProps({
@@ -219,60 +219,11 @@ function clearCanvas() {
 }
 
 /**
- * Whether the ENGINE would actually find each required role — checked by
- * running the game's own shape detector over the canvas, not by looking for
- * coloured pixels. The distinction matters: the detector drops shapes below
- * its minimum size, so a lone small dot of player-blue passes a naive pixel
- * check and still produces a game with no player in it. Running the real code
- * answers the only question that counts: will this parse?
+ * The roles the engine must find. Hazards are left out on purpose: a level
+ * without danger is still playable.
  */
-function detectRoleIssues() {
-    // Hazards are optional — a level without danger is still playable.
-    const required = ROLES.filter((role) => role.key !== "hazard");
-
-    const { data } = ctx.getImageData(0, 0, WIDTH, HEIGHT);
-
-    const detected = detectShapes(
-        data,
-        WIDTH,
-        HEIGHT,
-        required.map((role) => ({ key: role.key, color: hexToRgb(role.color) }))
-    );
-
-    const missing = [];
-    const tooSmall = [];
-
-    for (const role of required) {
-        if (detected[role.key].length > 0) {
-            continue;
-        }
-
-        // Distinguish "never drawn" from "drawn, but too small to survive
-        // detection" — the second needs a different hint than the first.
-        (hasAnyPixelOf(data, role.color) ? tooSmall : missing).push(role);
-    }
-
-    return { missing, tooSmall };
-}
-
-function hasAnyPixelOf(data, hex) {
-    const value = parseInt(hex.slice(1), 16);
-
-    for (let i = 0; i < data.length; i += 4) {
-        if (((data[i] << 16) | (data[i + 1] << 8) | data[i + 2]) === value) {
-            return true;
-        }
-    }
-
-    return false;
-}
-
-function listOfRoles(roles) {
-    const names = roles.map((role) => `a ${role.label.toLowerCase()}`);
-
-    return names.length > 1
-        ? `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`
-        : names[0];
+function requiredRoles() {
+    return ROLES.filter((role) => role.key !== "hazard");
 }
 
 function submit() {
@@ -280,17 +231,11 @@ function submit() {
         return;
     }
 
-    const { missing, tooSmall } = detectRoleIssues();
+    const { data } = ctx.getImageData(0, 0, WIDTH, HEIGHT);
+    const problem = roleIssueMessage(detectRoleIssues(data, WIDTH, HEIGHT, requiredRoles()));
 
-    if (missing.length > 0) {
-        validationError.value = `Your level still needs ${listOfRoles(missing)}.`;
-
-        return;
-    }
-
-    if (tooSmall.length > 0) {
-        validationError.value =
-            `You drew ${listOfRoles(tooSmall)}, but too small for the game to see — make ${tooSmall.length > 1 ? "them" : "it"} bigger.`;
+    if (problem) {
+        validationError.value = problem;
 
         return;
     }

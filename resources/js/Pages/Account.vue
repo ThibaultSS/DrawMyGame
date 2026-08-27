@@ -23,6 +23,12 @@ defineProps({
     drawings: {
         type: Object,
         required: true
+    },
+    // Levels other people made that you kept. A separate paginator with its own
+    // page name, so paging one list does not page the other.
+    favourites: {
+        type: Object,
+        required: true
     }
 });
 
@@ -431,6 +437,40 @@ function fieldClass(error) {
 
                 <Pagination :links="drawings.links" />
             </template>
+
+            <!-- Levels somebody else made. They stay theirs: keeping one only
+                 remembers the speed and jump you played it at. -->
+            <section v-if="favourites.data.length > 0" class="flex flex-col gap-8">
+
+                <div>
+                    <h2 class="text-2xl font-semibold tracking-tight">Saved from others</h2>
+                    <p class="mt-2">Levels from the community you kept to play again.</p>
+                </div>
+
+                <ul class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                    <li v-for="level in favourites.data" :key="level.id">
+                        <Link
+                            :href="`/play/${level.id}`"
+                            class="flex h-full flex-col gap-3 border border-sub p-3 hover:border-ink"
+                        >
+                            <!-- The title is right below, so the alt stays generic. -->
+                            <img
+                                :src="level.image"
+                                alt="Level drawing"
+                                class="aspect-4/3 w-full object-cover"
+                                loading="lazy"
+                            >
+
+                            <p class="font-medium">{{ level.title || "Untitled" }}</p>
+
+                            <p class="mt-auto text-sm">By {{ level.author }}</p>
+                        </Link>
+                    </li>
+                </ul>
+
+                <Pagination :links="favourites.links" />
+
+            </section>
 
         </div>
     </AppLayout>

@@ -85,4 +85,25 @@ class SavedDrawing extends Model
     {
         return $this->hasMany(DrawingVote::class);
     }
+
+    /**
+     * The people who kept this level to play again.
+     *
+     * @return HasMany<LevelFavourite, $this>
+     */
+    public function favourites(): HasMany
+    {
+        return $this->hasMany(LevelFavourite::class);
+    }
+
+    /**
+     * One row per person who has tried this level, carrying their best time if
+     * they ever finished it.
+     *
+     * @return HasMany<LevelPlay, $this>
+     */
+    public function plays(): HasMany
+    {
+        return $this->hasMany(LevelPlay::class);
+    }
 }

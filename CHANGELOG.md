@@ -317,6 +317,52 @@ Two bugs were caught by writing this rather than by running it. The command orig
 
 ---
 
+## 16. Four features *(27 Aug, uncommitted)*
+
+### Playable on a phone
+
+The engine called `createCursorKeys()` and nothing else. The whole creation flow is phone-shaped — draw on paper, photograph it, upload it — and then stopped dead at the one step that needed a keyboard. Somebody could make a level on their phone and not play it.
+
+There are now on-screen buttons, bound by element id like the sliders already were, so the engine still reaches into the page rather than the page reaching into the engine. They appear only where `(pointer: coarse)` matches, and that check runs at **setup** rather than on mount, because the engine looks the buttons up while it boots — decided a tick later they would not exist yet and nothing would bind. Touch jump goes through `canJump` like the keys, so it is not a way to fly. WASD works too, which was two lines.
+
+The listeners include `pointercancel` and `pointerleave`, not just `pointerup`: a finger that slides off a button never fires `pointerup`, and the player would have run until the level ended.
+
+### Telling people when a level will not parse
+
+`/draw` has always run the real detector before letting you start, so "you drew a player, but too small for the game to see" was caught. The upload path did not, and a photo whose colours never resolved produced a broken level with no explanation.
+
+The logic was **extracted rather than rewritten** — `detectRoleIssues`, `hasAnyPixelOf` and `listOfRoles` moved out of `Draw.vue` into `game/roleCheck.js`, beside the other pixel work, and are now unit-tested there: all roles found, a role never drawn, and the case the helper exists for — a role drawn but under `minShapeSize`, which passes a naive "is this colour present?" check and still yields a game with no player.
+
+The detection is shared; the wording is not. "You drew it too small" is wrong advice for a photograph, where the colour was picked out of the image itself, so the picker talks about bolder colours and larger areas instead. It runs on submit rather than on every pick — a full detector pass over a phone photo on each click of the eyedropper would feel broken.
+
+---
+### Favourites, replacing copies
+
+Saving somebody else's level used to create a drawing **you owned** — which you could then publish under your own name. That is not what "save this to play again" means to anyone.
+
+It is now a favourite: the level stays credited to its author, and what is yours is the feel. `level_favourites` holds your speed and jump for their level, and `play()` prefers those over the author's, so a kept level opens the way you tuned it while theirs is untouched. Saving someone else's through `/save-drawing` is a **403** — the level is published, so its existence is not a secret and pretending it does not exist would be the wrong lie.
+
+It also ends the duplication for good: a favourite writes no file at all. Content-addressed storage stays for identical uploads.
+
+Two things that would have broken quietly, both caught by writing the tests for them:
+
+- **Two paginators on one page collide.** Both default to `?page`, so the favourites list needed its own page name. Without it, turning to page two of your own drawings silently pages the other list as well.
+- **A favourite outlives what it points at.** Neither unpublishing nor a soft delete fires the foreign key's cascade, so the account query filters on the drawing still being published. Without it the section renders cards that 404 the moment they are clicked.
+
+### Completions and times
+
+Winning fired confetti and was forgotten.
+
+`level_plays` is one row per person per level: `attempts` counts the tries, `best_time_ms` stays null until it is beaten. That null is what separates "tried it" from "finished it", and it answers everything from one table — beaten by 12 of 40 is a count over a count, the leaderboard is an order by, your own best is your own row. A row per attempt would have answered the same questions while growing without limit. Only an improvement is written, so replaying something you have already beaten cannot cost you your best time.
+
+The engine times the run with `performance.now()` — monotonic, so a clock change mid-run cannot produce a negative time — and announces the win with a `level-won` **event on the document** rather than another `window.*` global. The page listens; the engine carries on knowing nothing about pages.
+
+**Said plainly rather than hidden:** the clock runs in the browser, because the game does. A determined person can post a time they did not earn, and no server-side check can tell while the game is client-side. The request bounds a time to between a quarter of a second and an hour, which only keeps out the impossible, and `CLAUDE.md` records that these are trusted input.
+
+Three existing tests changed rather than being deleted, which is the useful part of having had them: the one asserting that saving someone else's level copies the file now asserts a 403, and the one pinning the exact shape of a community card failed the moment two keys were added to it — which is what it was for.
+
+---
+
 # Part 3 — Deliberately not done
 
 **Shrinking images before upload.** The game renders at 1500×800, so a 12-megapixel photo has about 95% of its pixels thrown away — but a saved level is still stored at full camera size. Shrinking each one to the size the engine actually uses would take roughly 55 GB/year down to 2 GB/year. Not storing unsaved levels (change 7) fixes the *transient* pile; this would fix the permanent growth. It is a small follow-up: one canvas pass on the same Blob at the Save step.
@@ -337,8 +383,8 @@ Two bugs were caught by writing this rather than by running it. The command orig
 composer run dev            # server + queue + vite together
 composer run setup          # install, .env, key, migrate, npm install, build
 
-php artisan test --compact  # 107 tests
-npm run test                # 54 tests (vitest — the pixel work and the level store)
+php artisan test --compact  # 131 tests
+npm run test                # 66 tests (vitest — the pixel work, the role check and the level store)
 npm run build
 
 vendor/bin/pint --dirty     # required after touching PHP

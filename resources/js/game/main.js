@@ -50,7 +50,26 @@ const config = {
 
 let player;
 let cursors;
+let keys;
 let canJump = false;
+
+/**
+ * Held by the on-screen buttons on a touch device. The level is drawn and
+ * photographed on a phone, so it has to be playable on one — there is no
+ * keyboard to reach for.
+ */
+const touch = { left: false, right: false, jump: false };
+
+/** Undoes the button listeners, so a second boot does not double them up. */
+let touchCleanups = [];
+
+/**
+ * When this run started, for the finishing time.
+ *
+ * performance.now() rather than Date.now(): it is monotonic, so a clock change
+ * or a daylight-saving jump mid-run cannot produce a negative time.
+ */
+let startedAt = 0;
 
 let moveSpeed = 5;
 let jumpStrength = 10;
@@ -303,6 +322,15 @@ function showPopup(message) {
 
     window.gamePaused = true;
 
+    // The page records the time; the engine only says what happened. A DOM
+    // event rather than another window.* global — the page is already listening
+    // to the DOM, and this way the engine still knows nothing about pages.
+    if (message === "You won!") {
+        document.dispatchEvent(new CustomEvent("level-won", {
+            detail: { ms: Math.round(performance.now() - startedAt) }
+        }));
+    }
+
     document.getElementById("popup-message").textContent = message;
     document.getElementById("popup").style.display = "flex";
 
@@ -332,7 +360,15 @@ function showPopup(message) {
 
 function create() {
 
+    startedAt = performance.now();
+
     cursors = this.input.keyboard.createCursorKeys();
+
+    // WASD as well as the arrows: two lines, and it is what half of players
+    // reach for first.
+    keys = this.input.keyboard.addKeys("W,A,D");
+
+    bindTouchControls();
     this.input.mouse.disableContextMenu();
 
     imageToLevelData(this);
@@ -438,17 +474,23 @@ function update() {
         return;
     }
 
-    if (cursors.left.isDown) {
+    const left = cursors.left.isDown || keys.A.isDown || touch.left;
+    const right = cursors.right.isDown || keys.D.isDown || touch.right;
+    const jump = cursors.up.isDown || keys.W.isDown || touch.jump;
+
+    if (left) {
         Matter.Body.setVelocity(player, { x: -moveSpeed, y: player.velocity.y });
     }
-    else if (cursors.right.isDown) {
+    else if (right) {
         Matter.Body.setVelocity(player, { x: moveSpeed, y: player.velocity.y });
     }
     else {
         Matter.Body.setVelocity(player, { x: 0, y: player.velocity.y });
     }
 
-    if (cursors.up.isDown && canJump) {
+    // Touch goes through canJump like everything else, so a held button is not
+    // a way to fly.
+    if (jump && canJump) {
         Matter.Body.setVelocity(player, { x: player.velocity.x, y: -jumpStrength });
         canJump = false;
     }
@@ -463,6 +505,49 @@ function update() {
 }
 
 /**
+ * Wires the on-screen buttons the game page renders on a touch device.
+ *
+ * By element id, like the sliders: the engine reaches into the page rather than
+ * the page reaching into the engine, which is the arrangement everywhere else
+ * here. The buttons are absent on a desktop and this simply binds nothing.
+ */
+function bindTouchControls() {
+    for (const [id, key] of [["touch-left", "left"], ["touch-right", "right"], ["touch-jump", "jump"]]) {
+        const button = document.getElementById(id);
+
+        if (! button) {
+            continue;
+        }
+
+        // preventDefault, or a press also scrolls the page and fires the
+        // browser's own long-press behaviour mid-jump.
+        const press = (event) => {
+            event.preventDefault();
+            touch[key] = true;
+        };
+
+        const release = () => {
+            touch[key] = false;
+        };
+
+        button.addEventListener("pointerdown", press);
+        button.addEventListener("pointerup", release);
+
+        // pointerup alone is not enough. A finger that slides off the button
+        // never fires it, and the player would run until the level ended.
+        button.addEventListener("pointercancel", release);
+        button.addEventListener("pointerleave", release);
+
+        touchCleanups.push(() => {
+            button.removeEventListener("pointerdown", press);
+            button.removeEventListener("pointerup", release);
+            button.removeEventListener("pointercancel", release);
+            button.removeEventListener("pointerleave", release);
+        });
+    }
+}
+
+/**
  * Boots the scene and returns the Phaser.Game so the caller can destroy it.
  *
  * Exported instead of run at import time: the Vue Game page mounts and unmounts
@@ -471,8 +556,16 @@ function update() {
  * state above would leak from one play into the next, so it is reset here.
  */
 export function bootGame() {
+    touchCleanups.forEach((undo) => undo());
+    touchCleanups = [];
+    touch.left = false;
+    touch.right = false;
+    touch.jump = false;
+
+    startedAt = 0;
     player = undefined;
     cursors = undefined;
+    keys = undefined;
     canJump = false;
     moveSpeed = 5;
     jumpStrength = 10;

@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\DrawingVote;
+use App\Models\LevelPlay;
 use App\Models\SavedDrawing;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
@@ -47,6 +48,8 @@ class GameController extends Controller
             // Lets Save update this drawing instead of duplicating it.
             'drawingId' => $replayed?->id,
             ...$this->voteSummary($replayed),
+            ...$this->favouriteSummary($replayed),
+            ...$this->playSummary($replayed),
             'platformColor' => session('platformColor'),
             'goalColor' => session('goalColor'),
             'playerColor' => session('playerColor'),
@@ -56,6 +59,76 @@ class GameController extends Controller
             'speed' => (int) session('gameSpeed', 5),
             'jumpHeight' => (int) session('jumpHeight', 10),
         ]);
+    }
+
+    /**
+     * How this level has been played: how many have beaten it, out of how many
+     * who tried, your own best, and the fastest few.
+     *
+     * All empty for a level the browser is holding — there is nothing to record
+     * against until a level has been saved.
+     *
+     * @return array{beaten: int, attempted: int, myBestMs: int|null, fastest: array<int, array{username: string, ms: int}>, canRecord: bool}
+     */
+    private function playSummary(?SavedDrawing $drawing): array
+    {
+        if (! $drawing) {
+            return ['beaten' => 0, 'attempted' => 0, 'myBestMs' => null, 'fastest' => [], 'canRecord' => false];
+        }
+
+        $drawing->loadCount([
+            'plays as attempted_count',
+            'plays as beaten_count' => fn (Builder $plays) => $plays->whereNotNull('best_time_ms'),
+        ]);
+
+        $fastest = LevelPlay::query()
+            ->with('user')
+            ->where('saved_drawing_id', $drawing->id)
+            ->whereNotNull('best_time_ms')
+            ->orderBy('best_time_ms')
+            ->take(5)
+            ->get()
+            ->map(fn (LevelPlay $play): array => [
+                // The author of a time can have deleted their account: the row
+                // goes with them, but another player's row may still name them
+                // in a race they are no longer part of.
+                'username' => $play->user?->username ?? 'Unknown player',
+                'ms' => $play->best_time_ms,
+            ])
+            ->all();
+
+        return [
+            'beaten' => $drawing->beaten_count,
+            'attempted' => $drawing->attempted_count,
+            'myBestMs' => Auth::check()
+                ? $drawing->plays()->where('user_id', Auth::id())->value('best_time_ms')
+                : null,
+            'fastest' => $fastest,
+            // A time has to belong to somebody, so this needs an account.
+            'canRecord' => Auth::check(),
+        ];
+    }
+
+    /**
+     * Whether this is somebody else's level you have kept, and whether you
+     * could keep it.
+     *
+     * Both false for a level the browser is holding: there is nothing to keep
+     * until a level has been saved and published.
+     *
+     * @return array{isFavourite: bool, canFavourite: bool}
+     */
+    private function favouriteSummary(?SavedDrawing $drawing): array
+    {
+        if (! $drawing || ! Auth::check()) {
+            return ['isFavourite' => false, 'canFavourite' => false];
+        }
+
+        return [
+            'isFavourite' => $drawing->favourites()->where('user_id', Auth::id())->exists(),
+            // Published, and not already yours — you cannot keep what you own.
+            'canFavourite' => $drawing->published && $drawing->user_id !== Auth::id(),
+        ];
     }
 
     /**
