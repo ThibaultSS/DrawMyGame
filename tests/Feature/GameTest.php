@@ -1229,6 +1229,92 @@ class GameTest extends TestCase
         ]);
     }
 
+    /**
+     * Google supplies a display name, and it is written straight to the column
+     * without a form request, so everything the rules promise has to be done by
+     * hand. A name Google is perfectly happy with is not one this application
+     * would have accepted.
+     */
+    public function test_google_sign_in_cleans_up_an_unusable_nickname()
+    {
+        $this->fakeGoogleUser([
+            'id' => 'google-789',
+            'name' => 'Jurgen Muller',
+            'nickname' => 'Jürgen Müller!',
+            'email' => 'jurgen@example.com',
+        ]);
+
+        $this->get('/auth/google/callback')->assertRedirect('/');
+
+        // Accents become plain letters rather than being dropped, so this is
+        // "JurgenMuller" and not "JrgenMller".
+        $this->assertDatabaseHas('users', [
+            'email' => 'jurgen@example.com',
+            'username' => 'JurgenMuller',
+        ]);
+    }
+
+    public function test_google_sign_in_truncates_a_very_long_nickname()
+    {
+        $this->fakeGoogleUser([
+            'id' => 'google-long',
+            'name' => 'Long Name',
+            'nickname' => str_repeat('a', 120),
+            'email' => 'long@example.com',
+        ]);
+
+        $this->get('/auth/google/callback')->assertRedirect('/');
+
+        $this->assertSame(
+            User::USERNAME_MAX,
+            strlen(User::where('email', 'long@example.com')->value('username'))
+        );
+    }
+
+    // A nickname of nothing but punctuation leaves nothing to use, and the
+    // column still has to be given something valid
+    public function test_google_sign_in_falls_back_when_nothing_survives()
+    {
+        $this->fakeGoogleUser([
+            'id' => 'google-empty',
+            'name' => 'Symbols',
+            'nickname' => '!!! ***',
+            'email' => 'symbols@example.com',
+        ]);
+
+        $this->get('/auth/google/callback')->assertRedirect('/');
+
+        $username = User::where('email', 'symbols@example.com')->value('username');
+
+        $this->assertMatchesRegularExpression(User::USERNAME_PATTERN, $username);
+        $this->assertGreaterThanOrEqual(User::USERNAME_MIN, strlen($username));
+    }
+
+    /**
+     * The suffix that makes a name unique has to fit inside the limit too.
+     * A name already at the limit would otherwise grow past it while trying to
+     * become unique — and be written anyway, since nothing validates this path.
+     */
+    public function test_google_sign_in_keeps_a_deduplicated_name_within_the_limit()
+    {
+        $taken = str_repeat('b', User::USERNAME_MAX);
+        User::factory()->create(['username' => $taken, 'email' => 'first@example.com']);
+
+        $this->fakeGoogleUser([
+            'id' => 'google-dupe',
+            'name' => 'Same Again',
+            'nickname' => $taken,
+            'email' => 'second@example.com',
+        ]);
+
+        $this->get('/auth/google/callback')->assertRedirect('/');
+
+        $username = User::where('email', 'second@example.com')->value('username');
+
+        $this->assertLessThanOrEqual(User::USERNAME_MAX, strlen($username));
+        $this->assertNotSame($taken, $username);
+    }
+
     // 23c. Signing in with Google on an account that already has a password
     // links the two. It used to overwrite the password with a random hash and
     // rename the user, locking them out of their own account for good — there

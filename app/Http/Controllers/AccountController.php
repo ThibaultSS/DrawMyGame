@@ -70,27 +70,30 @@ class AccountController extends Controller
      */
     private function removeUnpublishedDrawings(User $user): void
     {
-        $drafts = SavedDrawing::withTrashed()
+        // Chunked rather than fetched whole: this is the one query here whose
+        // size is set by how much somebody drew, and nothing else caps it.
+        SavedDrawing::withTrashed()
             ->where('user_id', $user->id)
             ->where('published', false)
-            ->get();
+            ->chunkById(100, function ($drafts): void {
+                foreach ($drafts as $draft) {
+                    $path = $draft->image_path;
 
-        foreach ($drafts as $draft) {
-            $path = $draft->image_path;
+                    $draft->forceDelete();
 
-            $draft->forceDelete();
+                    // One picture is one file and several drawings may point at
+                    // it, so the draft's image only goes if nothing else still
+                    // names it. Live rows only, for the same reason as
+                    // destroy(): a trashed row would otherwise pin a shared file
+                    // forever.
+                    $stillReferenced = SavedDrawing::query()
+                        ->where('image_path', $path)
+                        ->exists();
 
-            // One picture is one file and several drawings may point at it, so
-            // the draft's image only goes if nothing else still names it. Live
-            // rows only, for the same reason as destroy(): a trashed row would
-            // otherwise pin a shared file forever.
-            $stillReferenced = SavedDrawing::query()
-                ->where('image_path', $path)
-                ->exists();
-
-            if (! $stillReferenced) {
-                Storage::disk('local')->delete($path);
-            }
-        }
+                    if (! $stillReferenced) {
+                        Storage::disk('local')->delete($path);
+                    }
+                }
+            });
     }
 }

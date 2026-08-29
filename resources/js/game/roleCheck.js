@@ -12,6 +12,71 @@
  * resolve simply produced a broken level with no explanation.
  */
 import { detectShapes, hexToRgb } from "./colorDetection.js";
+import { DETECTION } from "./config.js";
+
+/** The paper the drawing page paints on, and what the eraser paints with. */
+const PAPER = "#ffffff";
+
+/**
+ * The colours a level is drawn in have to be far enough apart for the detector
+ * to tell them apart — and far enough from the paper not to detect the page.
+ *
+ * The detector matches within a Euclidean RGB distance of DETECTION.
+ * colorTolerance, so two colours closer than that overlap: a pixel can satisfy
+ * both, and a platform would also count as a hazard. This is the same number,
+ * read from the same place, rather than a second copy that could drift.
+ *
+ * @param {Array<{key: string, color: string, label: string}>} roles
+ * @returns {Array<Array>} the pairs that clash; a role paired with null is one
+ *   too close to the paper
+ */
+export function colorsTooClose(roles) {
+    const clashes = [];
+
+    for (let i = 0; i < roles.length; i++) {
+        if (! farEnough(roles[i].color, PAPER)) {
+            clashes.push([roles[i], null]);
+        }
+
+        for (let j = i + 1; j < roles.length; j++) {
+            if (! farEnough(roles[i].color, roles[j].color)) {
+                clashes.push([roles[i], roles[j]]);
+            }
+        }
+    }
+
+    return clashes;
+}
+
+/**
+ * Squared distance against squared tolerance, the same comparison the detector
+ * makes per pixel — so "far enough" here means exactly what it means there.
+ */
+function farEnough(a, b) {
+    const first = hexToRgb(a);
+    const second = hexToRgb(b);
+
+    const dr = first.r - second.r;
+    const dg = first.g - second.g;
+    const db = first.b - second.b;
+
+    return dr * dr + dg * dg + db * db >= DETECTION.colorTolerance * DETECTION.colorTolerance;
+}
+
+/** The one sentence to show when colours clash, or an empty string. */
+export function colorClashMessage(clashes) {
+    if (clashes.length === 0) {
+        return "";
+    }
+
+    const [first, second] = clashes[0];
+
+    if (second === null) {
+        return `Your ${first.label.toLowerCase()} colour is too close to the paper — the game would read the page itself as part of the level. Pick something bolder.`;
+    }
+
+    return `Your ${first.label.toLowerCase()} and ${second.label.toLowerCase()} colours are too alike for the game to tell apart. Move them further apart.`;
+}
 
 /**
  * Which required roles the engine would fail to find, and why.

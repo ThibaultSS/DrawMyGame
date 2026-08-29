@@ -86,7 +86,7 @@ class GameController extends Controller
             ->where('saved_drawing_id', $drawing->id)
             ->whereNotNull('best_time_ms')
             ->orderBy('best_time_ms')
-            ->take(5)
+            ->take(10)
             ->get()
             ->map(fn (LevelPlay $play): array => [
                 // The author of a time can have deleted their account: the row

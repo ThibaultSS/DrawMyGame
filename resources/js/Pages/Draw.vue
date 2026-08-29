@@ -17,7 +17,8 @@ import { onMounted, ref } from "vue";
 import { Head, router } from "@inertiajs/vue3";
 
 import AppLayout from "../Layouts/AppLayout.vue";
-import { detectRoleIssues, roleIssueMessage } from "../game/roleCheck.js";
+import { colorClashMessage, colorsTooClose, detectRoleIssues, roleIssueMessage } from "../game/roleCheck.js";
+import { DETECTION } from "../game/config.js";
 import { putLevel } from "../levelStore.js";
 
 const props = defineProps({
@@ -42,11 +43,19 @@ const MAX_UNDO = 20;
 // One button per role the server sent. The colours are never hardcoded here:
 // the engine will be told exactly these values, so the canvas has to contain
 // them byte-for-byte, and the prop is the single source of truth.
-const ROLES = Object.entries(props.palette).map(([key, color]) => ({
-    key,
-    color,
-    label: key.charAt(0).toUpperCase() + key.slice(1)
-}));
+// The server's palette is where these start, not what they are: each colour is
+// yours to change, and the swatch follows.
+const roles = ref(
+    Object.entries(props.palette).map(([key, color]) => ({
+        key,
+        color,
+        label: key.charAt(0).toUpperCase() + key.slice(1)
+    }))
+);
+
+function colorOf(key) {
+    return roles.value.find((role) => role.key === key).color;
+}
 
 const canvas = ref(null);
 const activeRole = ref("platform");
@@ -89,6 +98,76 @@ function paintPaper() {
     ctx.fillRect(0, 0, WIDTH, HEIGHT);
 }
 
+/**
+ * Changes a role's colour, and repaints everything already drawn in it.
+ *
+ * Without the repaint, strokes made before the change keep the old colour and
+ * simply stop being platforms — the level would look right and parse wrong,
+ * which is the exact failure the role check exists to prevent.
+ *
+ * A snapshot goes on the undo stack first, so this reverses like any stroke.
+ */
+function changeColor(key, next) {
+    const previous = colorOf(key);
+
+    if (next === previous) {
+        return;
+    }
+
+    pushSnapshot();
+    repaint(previous, next);
+
+    roles.value = roles.value.map((role) => (role.key === key ? { ...role, color: next } : role));
+
+    validationError.value = "";
+}
+
+/**
+ * Repaints every pixel the detector would have read as the old colour.
+ *
+ * Within the detector's own tolerance rather than an exact match, because a
+ * stroke is anti-aliased: its edge pixels are blends, and an exact match would
+ * leave a fringe of the old colour around every shape.
+ *
+ * Pixels near the paper are left alone. They are the outer half of that same
+ * fringe, and repainting them would creep outwards over the page.
+ */
+function repaint(from, to) {
+    const image = ctx.getImageData(0, 0, WIDTH, HEIGHT);
+    const data = image.data;
+
+    const source = rgb(from);
+    const target = rgb(to);
+    const paper = rgb(PAPER);
+    const limit = DETECTION.colorTolerance * DETECTION.colorTolerance;
+
+    for (let i = 0; i < data.length; i += 4) {
+        if (distance(data, i, source) >= limit || distance(data, i, paper) < limit) {
+            continue;
+        }
+
+        data[i] = target.r;
+        data[i + 1] = target.g;
+        data[i + 2] = target.b;
+    }
+
+    ctx.putImageData(image, 0, 0);
+}
+
+function rgb(hex) {
+    const value = parseInt(hex.slice(1), 16);
+
+    return { r: (value >> 16) & 255, g: (value >> 8) & 255, b: value & 255 };
+}
+
+function distance(data, i, color) {
+    const dr = data[i] - color.r;
+    const dg = data[i + 1] - color.g;
+    const db = data[i + 2] - color.b;
+
+    return dr * dr + dg * dg + db * db;
+}
+
 function selectRole(key) {
     activeRole.value = key;
     eraser.value = false;
@@ -122,7 +201,7 @@ function startStroke(event) {
     pushSnapshot();
     validationError.value = "";
 
-    const color = eraser.value ? PAPER : props.palette[activeRole.value];
+    const color = eraser.value ? PAPER : colorOf(activeRole.value);
 
     ctx.lineWidth = brushSize.value;
     ctx.lineCap = "round";
@@ -223,11 +302,19 @@ function clearCanvas() {
  * without danger is still playable.
  */
 function requiredRoles() {
-    return ROLES.filter((role) => role.key !== "hazard");
+    return roles.value.filter((role) => role.key !== "hazard");
 }
 
 function submit() {
     if (submitting.value) {
+        return;
+    }
+
+    const clash = colorClashMessage(colorsTooClose(roles.value));
+
+    if (clash) {
+        validationError.value = clash;
+
         return;
     }
 
@@ -252,10 +339,10 @@ function submit() {
         // posts to, and the server redirects into the game. Inertia follows
         // that redirect, so there is nothing to handle on success here.
         router.post("/start-game", {
-            platformColor: props.palette.platform,
-            goalColor: props.palette.goal,
-            playerColor: props.palette.player,
-            hazardColor: props.palette.hazard
+            platformColor: colorOf("platform"),
+            goalColor: colorOf("goal"),
+            playerColor: colorOf("player"),
+            hazardColor: colorOf("hazard")
         }, {
             onFinish: () => {
                 submitting.value = false;
@@ -285,22 +372,37 @@ function submit() {
 
             <div class="flex flex-wrap items-center gap-4">
 
-                <button
-                    v-for="role in ROLES"
-                    :key="role.key"
-                    type="button"
-                    class="flex items-center gap-2 px-3 py-1.5 text-sm"
-                    :class="! eraser && activeRole === role.key ? 'bg-ink text-page' : 'border border-sub'"
-                    @click="selectRole(role.key)"
-                >
+                <div v-for="role in roles" :key="role.key" class="flex items-center">
+
+                    <button
+                        type="button"
+                        class="flex items-center gap-2 px-3 py-1.5 text-sm"
+                        :class="! eraser && activeRole === role.key ? 'bg-ink text-page' : 'border border-sub'"
+                        @click="selectRole(role.key)"
+                    >
+                        <!--
+                            The one inline style on the page: the swatch shows
+                            this role's colour, which by definition is not part
+                            of the house palette.
+                        -->
+                        <span class="size-3 border border-sub" :style="{ backgroundColor: role.color }"></span>
+                        {{ role.label }}
+                    </button>
+
                     <!--
-                        The one inline style on the page: the swatch shows the
-                        server-chosen colour for this role, which by definition
-                        is not part of the house palette.
+                        change, not input: a colour picker fires input
+                        continuously while it is dragged, and every one of those
+                        would repaint a million pixels.
                     -->
-                    <span class="size-3 border border-sub" :style="{ backgroundColor: role.color }"></span>
-                    {{ role.label }}
-                </button>
+                    <input
+                        type="color"
+                        :value="role.color"
+                        class="size-8 cursor-pointer border border-l-0 border-sub bg-page p-1"
+                        :aria-label="`Change the ${role.label.toLowerCase()} colour`"
+                        @change="changeColor(role.key, $event.target.value)"
+                    >
+
+                </div>
 
                 <button
                     type="button"

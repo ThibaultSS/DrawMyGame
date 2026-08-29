@@ -69,6 +69,55 @@ class AccountTest extends TestCase
         );
     }
 
+    /**
+     * A username prints on every gallery card and every leaderboard row, so its
+     * shape is everyone's problem, not just its owner's. It used to be 255
+     * characters of anything at all.
+     */
+    public function test_a_username_must_look_like_a_username()
+    {
+        $user = User::factory()->create(['username' => 'mine']);
+
+        $refused = [
+            'ab',                          // under the minimum
+            str_repeat('a', 31),           // over the maximum
+            'has a space',
+            'has.a.dot',
+            'ünïcödé',
+        ];
+
+        foreach ($refused as $username) {
+            $this->actingAs($user)
+                ->patch('/account/username', ['username' => $username])
+                ->assertSessionHasErrors('username');
+        }
+
+        $this->assertSame('mine', $user->fresh()->username);
+    }
+
+    public function test_letters_digits_hyphens_and_underscores_are_allowed()
+    {
+        $user = User::factory()->create();
+
+        $this->actingAs($user)
+            ->patch('/account/username', ['username' => 'Sam_the-Great99'])
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame('Sam_the-Great99', $user->fresh()->username);
+    }
+
+    public function test_registering_applies_the_same_rules()
+    {
+        $this->post('/register', [
+            'username' => 'no good',
+            'email' => 'new@example.com',
+            'password' => 'Password123!',
+            'password_confirmation' => 'Password123!',
+        ])->assertSessionHasErrors('username');
+
+        $this->assertDatabaseMissing('users', ['email' => 'new@example.com']);
+    }
+
     /* -------------------------------------------------------------- *
      * Password
      * -------------------------------------------------------------- */

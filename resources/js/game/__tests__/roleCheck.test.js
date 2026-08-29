@@ -1,6 +1,14 @@
 import { describe, it, expect } from "vitest";
 
-import { detectRoleIssues, hasAnyPixelOf, listOfRoles, roleIssueMessage } from "../roleCheck.js";
+import {
+    colorClashMessage,
+    colorsTooClose,
+    detectRoleIssues,
+    hasAnyPixelOf,
+    listOfRoles,
+    roleIssueMessage
+} from "../roleCheck.js";
+import { DETECTION } from "../config.js";
 import { createImage } from "./helpers.js";
 
 // The three roles a level cannot do without. Hazards are optional, so callers
@@ -133,6 +141,71 @@ describe("roleIssueMessage", () => {
     it("tells you to make a too-small mark bigger", () => {
         expect(roleIssueMessage({ missing: [], tooSmall: [{ label: "Player" }] }))
             .toContain("too small for the game to see");
+    });
+
+});
+
+describe("colorsTooClose", () => {
+
+    const role = (key, color) => ({ key, color, label: key });
+
+    it("passes colours that are far apart", () => {
+        const clashes = colorsTooClose([
+            role("platform", "#000000"),
+            role("goal", "#00aa00"),
+            role("player", "#0000ff")
+        ]);
+
+        expect(clashes).toEqual([]);
+    });
+
+    // The detector compares squared distance against squared tolerance, so the
+    // boundary is where a pixel stops matching both colours at once.
+    it("catches two colours inside the detector's tolerance", () => {
+        const justInside = DETECTION.colorTolerance - 1;
+        const hex = "#" + justInside.toString(16).padStart(2, "0") + "0000";
+
+        const clashes = colorsTooClose([role("platform", "#000000"), role("goal", hex)]);
+
+        expect(clashes).toHaveLength(1);
+        expect(clashes[0].map((entry) => entry.key)).toEqual(["platform", "goal"]);
+    });
+
+    it("allows two colours exactly at the tolerance", () => {
+        const atEdge = DETECTION.colorTolerance;
+        const hex = "#" + atEdge.toString(16).padStart(2, "0") + "0000";
+
+        expect(colorsTooClose([role("platform", "#000000"), role("goal", hex)])).toEqual([]);
+    });
+
+    // The paper is white, and a colour close to it turns the page itself into a
+    // shape — which is a different problem needing different advice.
+    it("catches a colour too close to the paper", () => {
+        const clashes = colorsTooClose([role("platform", "#fffefe")]);
+
+        expect(clashes).toHaveLength(1);
+        expect(clashes[0][1]).toBeNull();
+    });
+
+});
+
+describe("colorClashMessage", () => {
+
+    const role = (key, color) => ({ key, color, label: key });
+
+    it("says nothing when the colours work", () => {
+        expect(colorClashMessage([])).toBe("");
+    });
+
+    it("names both colours when two clash", () => {
+        const message = colorClashMessage([[role("platform", "#000"), role("goal", "#000")]]);
+
+        expect(message).toContain("platform");
+        expect(message).toContain("goal");
+    });
+
+    it("talks about the paper when that is the problem", () => {
+        expect(colorClashMessage([[role("platform", "#fff"), null]])).toContain("paper");
     });
 
 });

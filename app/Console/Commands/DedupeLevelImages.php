@@ -33,7 +33,10 @@ class DedupeLevelImages extends Command
         $byHash = [];
 
         foreach ($disk->files('levels') as $path) {
-            $byHash[hash('sha256', $disk->get($path))][] = $path;
+            // hash_file over the real path rather than hash() over disk->get():
+            // this command exists for large files, and get() would pull each one
+            // into memory in full to hash it.
+            $byHash[hash_file('sha256', $disk->path($path))][] = $path;
         }
 
         $removed = 0;

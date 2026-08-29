@@ -317,10 +317,17 @@ function fieldClass(error) {
 
             <h1 class="text-2xl font-semibold tracking-tight">My drawings</h1>
 
-            <p v-if="drawings.data.length === 0" class="flex flex-col items-start gap-4">
-                <span>You have not saved any drawings yet.</span>
-                <Link href="/upload" class="bg-ink px-4 py-2 text-page">Upload a drawing</Link>
-            </p>
+            <div v-if="drawings.data.length === 0" class="flex flex-col items-start gap-4">
+                <p>
+                    Nothing saved yet. Photograph a drawing or draw one here, and
+                    pressing Save while you play it puts it in this list.
+                </p>
+
+                <div class="flex flex-wrap gap-4">
+                    <Link href="/upload" class="bg-ink px-4 py-2 text-page">Upload a drawing</Link>
+                    <Link href="/draw" class="border border-sub px-4 py-2">Draw one here</Link>
+                </div>
+            </div>
 
             <template v-else>
                 <ul class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
@@ -440,14 +447,25 @@ function fieldClass(error) {
 
             <!-- Levels somebody else made. They stay theirs: keeping one only
                  remembers the speed and jump you played it at. -->
-            <section v-if="favourites.data.length > 0" class="flex flex-col gap-8">
+            <section class="flex flex-col gap-8">
 
                 <div>
                     <h2 class="text-2xl font-semibold tracking-tight">Saved from others</h2>
                     <p class="mt-2">Levels from the community you kept to play again.</p>
                 </div>
 
-                <ul class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
+                <!-- An empty section said nothing at all before, which reads as
+                     a page that has not finished loading. -->
+                <div v-if="favourites.data.length === 0" class="flex flex-col items-start gap-4">
+                    <p>
+                        You have not kept any yet. Saving a level somebody else made
+                        leaves it theirs, and remembers the speed and jump you like.
+                    </p>
+
+                    <Link href="/community" class="border border-sub px-4 py-2">Browse the community</Link>
+                </div>
+
+                <ul v-else class="grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
                     <li v-for="level in favourites.data" :key="level.id">
                         <Link
                             :href="`/play/${level.id}`"
@@ -461,14 +479,14 @@ function fieldClass(error) {
                                 loading="lazy"
                             >
 
-                            <p class="font-medium">{{ level.title || "Untitled" }}</p>
+                            <p class="truncate font-medium">{{ level.title || "Untitled" }}</p>
 
-                            <p class="mt-auto text-sm">By {{ level.author }}</p>
+                            <p class="mt-auto truncate text-sm">By {{ level.author }}</p>
                         </Link>
                     </li>
                 </ul>
 
-                <Pagination :links="favourites.links" />
+                <Pagination v-if="favourites.data.length > 0" :links="favourites.links" />
 
             </section>
 

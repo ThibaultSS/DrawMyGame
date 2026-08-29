@@ -13,7 +13,7 @@
  * Vite splits Phaser into a chunk that only the game page downloads.
  */
 import { computed, onMounted, onUnmounted, ref } from "vue";
-import { Head, router, usePage } from "@inertiajs/vue3";
+import { Head, Link, router, usePage } from "@inertiajs/vue3";
 
 import AppLayout from "../Layouts/AppLayout.vue";
 import { getLevel, clearLevel } from "../levelStore.js";
@@ -73,8 +73,11 @@ onMounted(async () => {
     const source = await levelSource();
 
     // Nothing to play: a bookmarked /game, or a store cleared underneath us.
+    // Saying so, because leaving in silence looks like the page gave up.
     if (! source) {
-        router.visit("/upload");
+        router.visit("/upload", {
+            onFinish: () => flash("That level is no longer in this browser. Pick a drawing to start again.")
+        });
 
         return;
     }
@@ -200,6 +203,17 @@ const isTouch =
 const saving = ref(false);
 
 /**
+ * Says something through the toast the layout already owns.
+ *
+ * The server's own flash covers anything that succeeded. This covers what it
+ * never saw: a request that was refused, or a level that was gone before a
+ * request was made.
+ */
+function flash(message) {
+    document.dispatchEvent(new CustomEvent("flash", { detail: { message } }));
+}
+
+/**
  * The one request that carries the level image — and only when the server does
  * not have it already.
  *
@@ -232,7 +246,11 @@ function saveDrawing() {
         preserveState: true,
         preserveScroll: true,
         onStart: () => (saving.value = true),
-        onFinish: () => (saving.value = false)
+        onFinish: () => (saving.value = false),
+        // A save can be refused — the level unpublished in another tab, the
+        // upload limit reached, the session gone. Without this the button
+        // simply came back and nothing was saved, with nothing said.
+        onError: () => flash("That did not save. The level may have changed, or you may have saved too many just now."),
     });
 }
 
@@ -243,7 +261,11 @@ function saveDrawing() {
  * time rather than its author's — which is the part copying it used to buy.
  */
 function toggleFavourite() {
-    const options = { preserveState: true, preserveScroll: true };
+    const options = {
+        preserveState: true,
+        preserveScroll: true,
+        onError: () => flash("That did not work. The level may no longer be published.")
+    };
 
     if (props.isFavourite) {
         router.delete(`/drawing/${props.drawingId}/favourite`, options);
@@ -414,8 +436,8 @@ function vote(value) {
                             :key="index"
                             class="flex justify-between gap-4"
                         >
-                            <span>{{ index + 1 }}. {{ entry.username }}</span>
-                            <span>{{ formatTime(entry.ms) }}</span>
+                            <span class="min-w-0 truncate">{{ index + 1 }}. {{ entry.username }}</span>
+                            <span class="shrink-0">{{ formatTime(entry.ms) }}</span>
                         </li>
                     </ol>
 
@@ -515,6 +537,17 @@ function vote(value) {
 
                     <p v-else>{{ likes }} likes · {{ dislikes }} dislikes</p>
                 </template>
+
+                <!-- Somewhere to go next, rather than only back. Both are here
+                     because after a level you either want another one or the
+                     gallery you came from. -->
+                <Link href="/random-level" class="w-full border border-sub px-4 py-2 text-center">
+                    Another random level
+                </Link>
+
+                <Link href="/community" class="w-full border border-sub px-4 py-2 text-center">
+                    Back to community
+                </Link>
 
                 <button type="button" class="w-full border border-sub px-4 py-2" @click="goBack">
                     Go Back

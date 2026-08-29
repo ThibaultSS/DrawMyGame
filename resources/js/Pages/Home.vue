@@ -57,8 +57,8 @@ const SECTIONS = [
         image: "/assets/community.png",
         alt: "Two children playing a hand-drawn level on a laptop",
         paragraphs: [
-            "You are not the only one drawing. Every level someone decides to share ends up in the community gallery, and all of them are free to play. Some are careful little puzzles with platforms placed exactly where they need to be, others are wild scribbles that somehow still work. Head to the community page and you can search through them by title or by the person who made them, and sort by the newest levels or by the ones everybody likes most.",
-            "Playing someone else's level works exactly like playing your own. Same arrow keys, same goal, same spikes to keep away from. The only difference is that you have no idea what is coming, which is half the fun. If a level made you laugh or made you rage quit, you can give it a thumbs up or a thumbs down while you play it. That needs an account and you get one vote per level, so the rankings mean something."
+            "You are not the only one drawing. Every level someone decides to share ends up in the community gallery and all of them are free to play. Some are careful little puzzles with platforms placed exactly where they need to be, others are wild scribbles that somehow still work. Head to the community page and you can search through them by title or by the person who made them and sort by the newest levels or by the ones everybody likes most.",
+            "Playing someone else's level works exactly like playing your own: same arrow keys, same goal and same spikes to keep away from. The only difference is that you have no idea what is coming, which is half the fun. If a level made you laugh or made you rage quit, you can give it a thumbs up or a thumbs down while you play it. Therefor you need an account and you get only one vote per level, so the rankings mean something."
         ]
     }
 ];
@@ -101,7 +101,7 @@ const SECTIONS = [
 
                 <p class="max-w-xl text-lg">
                     Turn a hand-drawn picture into a platformer you can play.
-                    Draw the platforms, the goal, the spikes and yourself — the
+                    Draw the platforms, the goal, the spikes and your player. The
                     game builds the rest.
                 </p>
 
@@ -156,11 +156,11 @@ const SECTIONS = [
                 <h2 class="text-2xl font-semibold tracking-tight">How you play</h2>
 
                 <p class="mt-4">
-                    The whole game is three keys, so there is nothing to learn
+                    To play the game you only need to use three keys, so there is nothing to learn
                     before you start. The left and right arrows walk your
                     character across the platforms you drew, and the up arrow
-                    jumps. That is it. No double jump to master, no combo to
-                    remember, no menu to read first.
+                    jumps. That's it: no double jump to master, no combo to
+                    remember and no menu to read first.
                 </p>
 
                 <div class="mt-8 flex flex-wrap items-center gap-x-12 gap-y-6">
@@ -177,12 +177,7 @@ const SECTIONS = [
                 </div>
 
                 <p class="mt-8">
-                    Your job is to reach the goal you drew without touching
-                    anything you drew as a hazard. Get there and the game says
-                    so, with rather a lot of confetti. Touch a spike and it
-                    stops you where you are, and you can either close the
-                    message to look at what went wrong or hit Retry and start
-                    the level again from the beginning. There are no lives to
+                    Your job is to reach the goal without touching any hazards you drew. Touch a spike and you'll have to restart the level. There are no lives to
                     run out of and nothing to lose, so a level that beats you
                     the first ten times costs you nothing but another go.
                 </p>
@@ -195,9 +190,7 @@ const SECTIONS = [
                     level that turned out slightly too hard or slightly too
                     easy. A gap that looks impossible often just needs a little
                     more jump. When you save a level, those two settings are
-                    saved with it, so the next time you play it, or the next
-                    person who plays it, starts out with exactly the feel you
-                    settled on.
+                    saved. So the next time you play it, you start out with exactly the same physics.
                 </p>
 
                 <p class="mt-4">
@@ -205,9 +198,9 @@ const SECTIONS = [
                     picture, so the physics follow your lines rather than a
                     tidied-up version of them. A wobbly platform is genuinely
                     wobbly, a slope you drew by accident is a slope you can slide
-                    down, and a shape you thought was closed but is not will let
+                    down and a shape you thought was closed but is not will let
                     your character fall straight through it. That is not a bug,
-                    it is your drawing, and redrawing that one corner is usually
+                    it is your drawing and redrawing that one corner is usually
                     all it takes.
                 </p>
             </section>

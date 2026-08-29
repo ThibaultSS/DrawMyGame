@@ -54,21 +54,56 @@ class GoogleController extends Controller
     }
 
     /**
-     * Google nicknames are not unique, but the username column is. Two people
-     * whose Google nickname is "jochen" used to mean a constraint violation and a
-     * 500 on the callback, so a free variant is picked instead.
+     * A username from Google that this application would also have accepted.
+     *
+     * This is the one place a username is written without passing through a
+     * form request, so everything the rules guarantee has to be done by hand:
+     * Google supplies a display name, which can be any length and hold spaces,
+     * accents or punctuation, and none of that is allowed here.
+     *
+     * Google nicknames are not unique either, but the column is. Two people
+     * whose nickname is "jochen" used to mean a constraint violation and a 500
+     * on the callback, so a free variant is picked instead.
      */
     private function availableUsername(object $googleUser): string
     {
-        $base = $googleUser->nickname ?? Str::before($googleUser->email, '@');
+        $base = $this->sanitisedUsername(
+            $googleUser->nickname ?? Str::before($googleUser->email, '@')
+        );
 
         $username = $base;
         $suffix = 1;
 
         while (User::where('username', $username)->exists()) {
-            $username = $base.++$suffix;
+            $suffix++;
+
+            // The suffix has to fit inside the limit as well, so the base is
+            // trimmed to make room for it. Without this a name at the limit
+            // would grow past it while trying to become unique — and be written
+            // anyway, because nothing validates this path.
+            $username = Str::limit($base, User::USERNAME_MAX - strlen((string) $suffix), '').$suffix;
         }
 
         return $username;
+    }
+
+    /**
+     * Strips a display name down to what a username may hold, and pads it out
+     * if too little survives.
+     */
+    private function sanitisedUsername(string $name): string
+    {
+        // Accents become their plain letters rather than being dropped, so
+        // "Jürgen" is "Jurgen" and not "Jrgen".
+        $clean = preg_replace('/[^A-Za-z0-9_-]/', '', Str::ascii($name)) ?? '';
+
+        $clean = Str::limit($clean, User::USERNAME_MAX, '');
+
+        // A name of nothing but punctuation leaves nothing behind, and a
+        // one-letter one is under the minimum. Either way it needs a name it
+        // can actually be given.
+        return strlen($clean) >= User::USERNAME_MIN
+            ? $clean
+            : 'player'.Str::lower(Str::random(6));
     }
 }

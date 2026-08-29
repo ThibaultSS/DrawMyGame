@@ -335,7 +335,6 @@ The logic was **extracted rather than rewritten** — `detectRoleIssues`, `hasAn
 
 The detection is shared; the wording is not. "You drew it too small" is wrong advice for a photograph, where the colour was picked out of the image itself, so the picker talks about bolder colours and larger areas instead. It runs on submit rather than on every pick — a full detector pass over a phone photo on each click of the eyedropper would feel broken.
 
----
 ### Favourites, replacing copies
 
 Saving somebody else's level used to create a drawing **you owned** — which you could then publish under your own name. That is not what "save this to play again" means to anyone.
@@ -363,6 +362,54 @@ Three existing tests changed rather than being deleted, which is the useful part
 
 ---
 
+## 17. Foolproofing, and choosing your own colours *(29 Aug, uncommitted)*
+
+### What the audit found already safe
+
+Worth recording, because the answer to "what happens when a thousand people play a level?" turned out to be *nothing*. The leaderboard was already `take(5)`; it was never going to print a thousand names. All three galleries paginate at twelve, titles cap at eighty and descriptions at five hundred, uploads cap at 10 MB and are checked by content rather than by extension, the undo stack caps at twenty, and the flood fill bails out through `maxShapeSize`. There are two unbounded `get()` calls in the whole application, both over small sets.
+
+It now shows ten times rather than five, with an index to match: `level_plays` was indexed on `(user_id, saved_drawing_id)`, which cannot serve "this drawing, fastest first", so every leaderboard sorted whatever the foreign key's index handed it.
+
+### The things that genuinely were not bounded
+
+**A username was 255 characters of anything at all**, and that name prints on every gallery card and every leaderboard row — one long one stretched the layout for everybody looking at it. It is now 3–30 characters of letters, digits, hyphen and underscore.
+
+The rules live on the `User` model rather than in a form request, and that is the point: **Google sign-in never passes through one.** It takes a display name from the provider and writes it straight to the column, so it can produce any length and any characters, and no validation would ever have seen it. The sanitiser there now has to reproduce by hand what the rules promise — including two details that only show up once you look: `Str::ascii` runs first so "Jürgen" becomes "Jurgen" rather than "Jrgen", and the suffix that makes a name unique has to fit inside the limit too, or a name already at thirty characters would grow past it while trying to become unique and be written anyway.
+
+Names already stored predate all of this, so the markup clamps as well. A `truncate` inside a flex row needs `min-w-0`, or the child refuses to shrink below its contents and nothing happens.
+
+**`levels:dedupe` was loading each whole file into memory to hash it** — on the one command whose entire job is large files. It hashes from the path now, which streams. Account deletion chunks its drafts, the one query there whose size is set by how much somebody drew.
+
+**Left undone on purpose:** nothing caps how many shapes a level may produce. A noisy photo can still turn into hundreds of physics bodies and make the game stutter. It is the one genuinely unbounded thing left, and it was offered and passed over.
+
+### Choosing your own colours when drawing
+
+The Draw page painted in four fixed colours. They are defaults now, and each one can be changed.
+
+The server needed nothing: `/start-game` has always validated any `#rrggbb`. All the work was in making it hard to get wrong.
+
+**Colours that are too alike do not work, and the page says so before you start.** The detector matches within a Euclidean RGB distance of 70, so two colours closer than that overlap — a pixel satisfies both, and a platform also counts as a hazard. `colorsTooClose()` reads `DETECTION.colorTolerance` rather than repeating the number, so "far enough apart" means exactly what it means to the detector, and it compares squared distances against the squared tolerance for the same reason the detector does. It checks each colour against the paper white too, which is a different failure needing different words: the page itself becomes a shape.
+
+**Changing a colour repaints what is already drawn in it.** Without that, strokes made before the change keep the old colour and simply stop being platforms — a level that looks right and parses wrong, which is exactly the failure the role check was added to prevent. Two details: the repaint works within the detector's tolerance rather than on exact matches, because a stroke is anti-aliased and an exact match leaves a fringe of the old colour around every shape; and it leaves pixels near the paper alone, or the repaint creeps outwards over the page. A snapshot goes on the undo stack first, so it reverses like any other stroke.
+
+The colour input fires on `change`, not `input`. A colour picker emits `input` continuously while it is dragged, and each one would repaint 1.2 million pixels.
+
+### Being handed a level, and a way back
+
+`/random-level` picks a published level by counting and offsetting rather than `inRandomOrder()`, which asks the database to sort every published level to return one row. It has its own path because `/play/random` would be caught by `/play/{drawing}`, whose model binding would read "random" as an id. Nothing published is a message rather than a 404 — the route exists, there is simply nothing behind it yet.
+
+There are buttons for it on the community header and beside the game, where it doubles as "another one", and the game page finally has a link back to the gallery instead of only the browser's back button.
+
+### Saying something when nothing worked
+
+**A failed save was invisible** — the deferred item from 5 August. `saveDrawing()` had no error path, so a save refused because the level was unpublished in another tab, or because the upload limit was reached, just re-enabled the button as though nothing had happened. Favouriting had the same hole, and a level missing from the browser's store redirected to `/upload` without a word.
+
+All three say something now, through the toast the layout already owns. `FlashToast` gained a second way in: a `flash` event on the document, alongside the prop it already watched. A page raises the event rather than writing into shared props — the same arrangement the engine uses to announce a win, and for the same reason.
+
+The account page also says something when either list is empty, and names both ways in rather than only Upload.
+
+---
+
 # Part 3 — Deliberately not done
 
 **Shrinking images before upload.** The game renders at 1500×800, so a 12-megapixel photo has about 95% of its pixels thrown away — but a saved level is still stored at full camera size. Shrinking each one to the size the engine actually uses would take roughly 55 GB/year down to 2 GB/year. Not storing unsaved levels (change 7) fixes the *transient* pile; this would fix the permanent growth. It is a small follow-up: one canvas pass on the same Blob at the Save step.
@@ -383,8 +430,8 @@ Three existing tests changed rather than being deleted, which is the useful part
 composer run dev            # server + queue + vite together
 composer run setup          # install, .env, key, migrate, npm install, build
 
-php artisan test --compact  # 131 tests
-npm run test                # 66 tests (vitest — the pixel work, the role check and the level store)
+php artisan test --compact  # 143 tests
+npm run test                # 73 tests (vitest — the pixel work, the role check and the level store)
 npm run build
 
 vendor/bin/pint --dirty     # required after touching PHP

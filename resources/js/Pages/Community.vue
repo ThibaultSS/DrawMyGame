@@ -84,9 +84,16 @@ function applyFilters() {
     <AppLayout>
         <div class="mx-auto flex w-full max-w-6xl flex-col gap-8 px-6 py-12">
 
-            <header>
-                <h1 class="text-2xl font-semibold tracking-tight">Community Levels</h1>
-                <p class="mt-2">Play levels created by everyone in the DrawMyGame community.</p>
+            <header class="flex flex-wrap items-end justify-between gap-4">
+                <div>
+                    <h1 class="text-2xl font-semibold tracking-tight">Community Levels</h1>
+                    <p class="mt-2">Play levels created by everyone in the DrawMyGame community.</p>
+                </div>
+
+                <!-- For when you do not want to choose. -->
+                <Link href="/random-level" class="bg-ink px-4 py-2 text-page">
+                    Play a random level
+                </Link>
             </header>
 
             <div class="flex flex-wrap items-center justify-between gap-4">
@@ -146,7 +153,7 @@ function applyFilters() {
                                 class="aspect-4/3 w-full object-cover"
                             >
 
-                            <p class="font-medium">{{ drawing.title || "Untitled" }}</p>
+                            <p class="truncate font-medium">{{ drawing.title || "Untitled" }}</p>
 
                             <p v-if="drawing.description" class="line-clamp-2 text-sm">
                                 {{ drawing.description }}
@@ -155,8 +162,11 @@ function applyFilters() {
                             <!-- mt-auto pins this to the bottom, so cards with
                                  no description still line their footers up. -->
                             <p class="mt-auto flex justify-between gap-3 text-sm">
-                                <span>By {{ drawing.author }}</span>
-                                <span>{{ drawing.likes }} likes · {{ drawing.dislikes }} dislikes</span>
+                                <!-- min-w-0 is what lets truncate work at all:
+                                     a flex child will not shrink below its
+                                     content without it. -->
+                                <span class="min-w-0 truncate">By {{ drawing.author }}</span>
+                                <span class="shrink-0">{{ drawing.likes }} likes · {{ drawing.dislikes }} dislikes</span>
                             </p>
 
                             <p class="text-sm">

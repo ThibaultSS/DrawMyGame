@@ -11,6 +11,7 @@ use App\Http\Controllers\LevelImageController;
 use App\Http\Controllers\LevelPlayController;
 use App\Http\Controllers\LoginController;
 use App\Http\Controllers\LogoutController;
+use App\Http\Controllers\RandomLevelController;
 use App\Http\Controllers\RegisteredUserController;
 use App\Http\Controllers\SavedDrawingController;
 use Illuminate\Support\Facades\Route;
@@ -36,6 +37,10 @@ Route::get('/draw', DrawnLevelController::class)->name('draw');
 // existed still arrives with an image the server has to serve.
 Route::get('/game-setting', [GameSettingController::class, 'show'])->name('game-setting');
 Route::get('/play/{drawing}', [SavedDrawingController::class, 'play'])->name('play');
+
+// Its own path, not /play/random: that would be caught by the route above,
+// which would take "random" for a drawing id.
+Route::get('/random-level', RandomLevelController::class)->name('play.random');
 Route::get('/game', GameController::class)->name('game');
 
 // Saved level images live on the private disk and are only served through this
