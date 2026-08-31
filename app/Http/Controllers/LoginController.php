@@ -2,30 +2,48 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\LoginRequest;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
-use App\Models\User;
+use Illuminate\Support\Facades\RateLimiter;
+use Illuminate\Support\Str;
 
 class LoginController extends Controller
 {
-    public function __invoke(Request $request)
+    private const MAX_ATTEMPTS = 5;
+
+    public function __invoke(LoginRequest $request): RedirectResponse
     {
-        $request->validate([
-            'email' => ['required', 'email'],
-            'password' => ['required'],
-        ]);
+        $throttleKey = $this->throttleKey($request);
 
-        $user = User::where('email', $request->email)->first();
+        if (RateLimiter::tooManyAttempts($throttleKey, self::MAX_ATTEMPTS)) {
+            $seconds = RateLimiter::availableIn($throttleKey);
 
-        if (!$user) {
-            return back()->withErrors(['email' => 'No account found with this email address.']);
+            return back()->withErrors([
+                'email' => "Too many login attempts. Try again in {$seconds} seconds.",
+            ]);
         }
 
-        if (!Auth::attempt($request->only('email', 'password'))) {
-            return back()->withErrors(['password' => 'The password is incorrect.']);
+        if (! Auth::attempt($request->validated())) {
+            RateLimiter::hit($throttleKey);
+
+            return back()->withErrors([
+                'email' => 'Email or password is incorrect.',
+            ]);
         }
+
+        RateLimiter::clear($throttleKey);
 
         $request->session()->regenerate();
-        return redirect('/');
+
+        return redirect()->intended(route('home'));
+    }
+
+    private function throttleKey(Request $request): string
+    {
+        return Str::transliterate(
+            Str::lower($request->string('email')).'|'.$request->ip()
+        );
     }
 }

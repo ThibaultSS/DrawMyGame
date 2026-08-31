@@ -1,0 +1,15 @@
+@import 'tailwindcss';
+
+@source '../js/**/*.vue';
+
+@theme {
+    --color-page: #ffffff;
+    --color-ink: #000000;
+    --color-sub: #d9d9d9;
+    --color-error: #c81e1e;
+}
+
+body {
+    background: var(--color-page);
+    color: var(--color-ink);
+}

@@ -2,29 +2,29 @@
 
 namespace App\Http\Controllers;
 
+use App\Http\Requests\RegisterRequest;
 use App\Models\User;
-use Illuminate\Http\Request;
+use Illuminate\Http\RedirectResponse;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
-use Illuminate\Validation\Rules;
 
 class RegisteredUserController extends Controller
 {
-    public function __invoke(Request $request)
-{
-    $request->validate([
-        'username' => ['required', 'string', 'max:255', 'unique:users'],
-        'email' => ['required', 'string', 'email', 'max:255', 'unique:users'],
-        'password' => ['required', 'confirmed'],
-    ]);
+    public function __invoke(RegisterRequest $request): RedirectResponse
+    {
+        $validated = $request->validated();
 
-    User::create([
-    'name' => $request->username,
-    'username' => $request->username,
-    'email' => $request->email,
-    'password' => Hash::make($request->password),
-]);
+        $user = User::create([
+            'name' => $validated['username'],
+            'username' => $validated['username'],
+            'email' => $validated['email'],
+            'password' => Hash::make($validated['password']),
+        ]);
 
+        Auth::login($user);
 
-    return redirect('/');
-}
+        $request->session()->regenerate();
+
+        return redirect()->route('home');
+    }
 }
