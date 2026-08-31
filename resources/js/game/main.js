@@ -12,11 +12,6 @@ import {
 
 const Matter = Phaser.Physics.Matter.Matter;
 
-// Matter can only split a concave shape into convex parts when poly-decomp is
-// registered. Phaser 4 bundles poly-decomp and registers it when its Matter plugin
-// loads, so there is nothing to install. If that ever stops being true,
-// fromVertices quietly returns the convex hull instead and concave platforms gain
-// solid notches, so say so rather than fail silently.
 if (typeof Matter.Common.getDecomp === "function" && !Matter.Common.getDecomp()) {
     console.warn("poly-decomp is not registered with Matter: concave shapes will collide as their convex hull.");
 }
@@ -53,22 +48,10 @@ let cursors;
 let keys;
 let canJump = false;
 
-/**
- * Held by the on-screen buttons on a touch device. The level is drawn and
- * photographed on a phone, so it has to be playable on one — there is no
- * keyboard to reach for.
- */
 const touch = { left: false, right: false, jump: false };
 
-/** Undoes the button listeners, so a second boot does not double them up. */
 let touchCleanups = [];
 
-/**
- * When this run started, for the finishing time.
- *
- * performance.now() rather than Date.now(): it is monotonic, so a clock change
- * or a daylight-saving jump mid-run cannot produce a negative time.
- */
 let startedAt = 0;
 
 let moveSpeed = 5;
@@ -80,26 +63,17 @@ let hazardOutlines = [];
 let playerOutline = null;
 let playerGraphics;
 
-// Centre of the drawn player shape. Never changes, so work it out once.
 let playerOrigin = null;
 
-// Where the photo ended up inside the world once it was fitted. The area outside
-// it is not part of the drawing, so it is not part of the level either.
 let levelRect = null;
 
 function preload() {
     this.load.image("levelImage", window.levelImage);
 }
 
-/* ------------------------------------------------------------------ *
- * From photo to outlines
- * ------------------------------------------------------------------ */
-
 function imageToLevelData(scene) {
-
     const source = scene.textures.get("levelImage").getSourceImage();
 
-    // One scale for both axes, so the drawing is not squashed to fit.
     levelRect = fitToWorld(source.width, source.height, WORLD);
 
     const canvas = document.createElement("canvas");
@@ -117,17 +91,12 @@ function imageToLevelData(scene) {
         { key: "player",   color: hexToRgb(window.playerColor) }
     ];
 
-    // A hazard colour is optional: a level with nothing dangerous in it is
-    // still a level. Without one there is no colour to look for, and asking
-    // hexToRgb for the pixels of null would match nothing anyway.
     if (window.hazardColor) {
         targets.push({ key: "hazard", color: hexToRgb(window.hazardColor) });
     }
 
     const detected = detectShapes(pixels, source.width, source.height, targets);
 
-    // One outline per shape, scaled to world coordinates. The same points are used
-    // both to draw the shape and to build its collider, so the two always match.
     const toWorldOutline = shape =>
         simplifyOutline(traceBoundary(shape, source.width))
             .map(point => toWorldPoint(point, levelRect));
@@ -136,8 +105,6 @@ function imageToLevelData(scene) {
     goalOutlines = detected.goal.map(toWorldOutline);
     hazardOutlines = (detected.hazard ?? []).map(toWorldOutline);
 
-    // Only the largest shape in the player colour counts, so stray marks in that
-    // colour do not become a second player.
     if (detected.player.length > 0) {
         const biggest = detected.player.sort((a, b) => b.length - a.length)[0];
         playerOutline = toWorldOutline(biggest);
@@ -145,18 +112,12 @@ function imageToLevelData(scene) {
 
 }
 
-/* ------------------------------------------------------------------ *
- * Drawing and colliders
- * ------------------------------------------------------------------ */
-
 function createObjects(scene, shapes, color) {
-
     const graphics = scene.add.graphics();
 
     graphics.fillStyle(color);
 
     shapes.forEach(shape => {
-
         if (!shape || shape.length < 3) {
             return;
         }
@@ -175,26 +136,13 @@ function createObjects(scene, shapes, color) {
 
 }
 
-/**
- * Builds a real polygon collider per outline, so the player collides with exactly
- * the line that is drawn on screen.
- *
- * If the decomposition fails, falls back to the bounding box. A slightly too
- * generous collider beats a level with no floor.
- */
 function createShapeBodies(scene, shapeOutlines, options = {}, label = null) {
-
     shapeOutlines.forEach(outline => {
-
         const body =
             createPolygonBody(scene, outline, options) ??
             createBoundingBoxBody(scene, outline, options);
 
         if (body && label) {
-            // poly-decomp splits a concave shape into a compound body, and Matter
-            // reports collisions on the parts rather than the parent. The label has
-            // to sit on every part or the collision code will not see goal and
-            // hazard.
             body.parts.forEach(part => {
                 part.label = label;
             });
@@ -205,15 +153,12 @@ function createShapeBodies(scene, shapeOutlines, options = {}, label = null) {
 }
 
 function createPolygonBody(scene, outline, options) {
-
     if (!outline || outline.length < 3) {
         return null;
     }
 
     const vertices = outline.map(point => ({ x: point.x, y: point.y }));
 
-    // fromVertices puts the body's centre of mass at (x, y), and Vertices.centre
-    // gives exactly that point, so the collider lines up with the drawing.
     const centre = Matter.Vertices.centre(vertices);
 
     if (!Number.isFinite(centre.x) || !Number.isFinite(centre.y)) {
@@ -221,21 +166,19 @@ function createPolygonBody(scene, outline, options) {
     }
 
     try {
-
         const body = scene.matter.add.fromVertices(
             centre.x,
             centre.y,
             [vertices],
             options,
-            true,  // flag internal edges so the player does not snag on seams
-            0.01,  // tolerance for dropping collinear points
-            20     // minimum area of a part
+            true,
+            0.01,
+            20
         );
 
         return body && body.parts && body.parts.length > 0 ? body : null;
 
     } catch (error) {
-
         console.warn("Polygon collider failed, falling back to bounding box", error);
         return null;
 
@@ -244,7 +187,6 @@ function createPolygonBody(scene, outline, options) {
 }
 
 function createBoundingBoxBody(scene, outline, options) {
-
     if (!outline || outline.length === 0) {
         return null;
     }
@@ -266,7 +208,6 @@ function createBoundingBoxBody(scene, outline, options) {
 }
 
 function drawPlayer(offsetX = 0, offsetY = 0) {
-
     playerGraphics.clear();
     playerGraphics.fillStyle(parseInt(window.playerColor.replace("#", "0x")));
 
@@ -286,7 +227,6 @@ function drawPlayer(offsetX = 0, offsetY = 0) {
 }
 
 function createPlayer(scene) {
-
     if (!playerOutline) {
         return;
     }
@@ -313,59 +253,27 @@ function createPlayer(scene) {
         }
     );
 
-    // Stops the player from tipping over.
     Matter.Body.setInertia(player, Infinity);
 
 }
 
-function showPopup(message) {
-
+function endLevel(won) {
     window.gamePaused = true;
 
-    // The page records the time; the engine only says what happened. A DOM
-    // event rather than another window.* global — the page is already listening
-    // to the DOM, and this way the engine still knows nothing about pages.
-    if (message === "You won!") {
-        document.dispatchEvent(new CustomEvent("level-won", {
-            detail: { ms: Math.round(performance.now() - startedAt) }
-        }));
-    }
-
-    document.getElementById("popup-message").textContent = message;
-    document.getElementById("popup").style.display = "flex";
-
-    if (message === "You won!" && typeof confetti === "function") {
-
-        confetti({ particleCount: 200, spread: 120, origin: { y: 0.4 } });
-
-        setTimeout(() => {
-            confetti({ particleCount: 150, angle: 60, spread: 80, origin: { x: 0, y: 0.5 } });
-        }, 200);
-
-        setTimeout(() => {
-            confetti({ particleCount: 150, angle: 120, spread: 80, origin: { x: 1, y: 0.5 } });
-        }, 400);
-
-        setTimeout(() => {
-            confetti({ particleCount: 300, spread: 160, origin: { y: 0.3 } });
-        }, 600);
-
-    }
+    document.dispatchEvent(new CustomEvent("level-ended", {
+        detail: {
+            won,
+            ms: won ? Math.round(performance.now() - startedAt) : null
+        }
+    }));
 
 }
 
-/* ------------------------------------------------------------------ *
- * Scene
- * ------------------------------------------------------------------ */
-
 function create() {
-
     startedAt = performance.now();
 
     cursors = this.input.keyboard.createCursorKeys();
 
-    // WASD as well as the arrows: two lines, and it is what half of players
-    // reach for first.
     keys = this.input.keyboard.addKeys("W,A,D");
 
     bindTouchControls();
@@ -373,9 +281,6 @@ function create() {
 
     imageToLevelData(this);
 
-    // The level is the drawing, not the canvas. Fitting the photo leaves an empty
-    // bar on two sides, and the walls go around the drawing so the player cannot
-    // walk out into it.
     this.matter.world.setBounds(
         levelRect.offsetX,
         levelRect.offsetY,
@@ -386,14 +291,10 @@ function create() {
     createPlayer(this);
 
     this.matter.world.on("collisionstart", (event) => {
-
         event.pairs.forEach(pair => {
-
             const bodyA = pair.bodyA;
             const bodyB = pair.bodyB;
 
-            // Matter reports the part of a compound body, so compare against the
-            // parent. A simple body is its own parent, so this works either way.
             const playerIsA = (bodyA.parent || bodyA) === player;
             const playerIsB = (bodyB.parent || bodyB) === player;
 
@@ -401,43 +302,33 @@ function create() {
                 return;
             }
 
-            // Any contact refills the jump: there is no ground check yet.
             canJump = true;
 
             const other = playerIsA ? bodyB : bodyA;
 
             if (other.label === "goal") {
-                showPopup("You won!");
+                endLevel(true);
             }
 
             if (other.label === "hazard") {
-                showPopup("You lost!");
+                endLevel(false);
             }
 
         });
 
     });
 
-    // Platforms
     createObjects(this, outlines, window.platformColor.replace("#", "0x"));
     createShapeBodies(this, outlines, { isStatic: true });
 
-    // Goal
     createObjects(this, goalOutlines, window.goalColor.replace("#", "0x"));
     createShapeBodies(this, goalOutlines, { isStatic: true, isSensor: true }, "goal");
 
-    // Hazards, if this level has any. The guard is on the colour rather than
-    // on the outlines: .replace() is evaluated before the call, so a missing
-    // hazard colour would throw here even with nothing to draw.
     if (window.hazardColor) {
         createObjects(this, hazardOutlines, window.hazardColor.replace("#", "0x"));
         createShapeBodies(this, hazardOutlines, { isStatic: true, isSensor: true }, "hazard");
     }
 
-    // The sliders own these numbers. Reading them at startup matters for a
-    // replayed drawing: it arrives with the speed and jump its author saved,
-    // already set on the sliders, and the game has to start from those rather
-    // than the defaults.
     const speedSlider = document.getElementById("speedSlider");
 
     if (speedSlider) {
@@ -456,16 +347,11 @@ function create() {
         });
     }
 
-    const loadingScreen = document.getElementById("loading-screen");
-
-    if (loadingScreen) {
-        loadingScreen.style.display = "none";
-    }
+    document.dispatchEvent(new CustomEvent("level-ready"));
 
 }
 
 function update() {
-
     if (window.gamePaused) {
         return;
     }
@@ -488,8 +374,6 @@ function update() {
         Matter.Body.setVelocity(player, { x: 0, y: player.velocity.y });
     }
 
-    // Touch goes through canJump like everything else, so a held button is not
-    // a way to fly.
     if (jump && canJump) {
         Matter.Body.setVelocity(player, { x: player.velocity.x, y: -jumpStrength });
         canJump = false;
@@ -504,13 +388,6 @@ function update() {
 
 }
 
-/**
- * Wires the on-screen buttons the game page renders on a touch device.
- *
- * By element id, like the sliders: the engine reaches into the page rather than
- * the page reaching into the engine, which is the arrangement everywhere else
- * here. The buttons are absent on a desktop and this simply binds nothing.
- */
 function bindTouchControls() {
     for (const [id, key] of [["touch-left", "left"], ["touch-right", "right"], ["touch-jump", "jump"]]) {
         const button = document.getElementById(id);
@@ -519,8 +396,6 @@ function bindTouchControls() {
             continue;
         }
 
-        // preventDefault, or a press also scrolls the page and fires the
-        // browser's own long-press behaviour mid-jump.
         const press = (event) => {
             event.preventDefault();
             touch[key] = true;
@@ -533,8 +408,6 @@ function bindTouchControls() {
         button.addEventListener("pointerdown", press);
         button.addEventListener("pointerup", release);
 
-        // pointerup alone is not enough. A finger that slides off the button
-        // never fires it, and the player would run until the level ended.
         button.addEventListener("pointercancel", release);
         button.addEventListener("pointerleave", release);
 
@@ -547,14 +420,6 @@ function bindTouchControls() {
     }
 }
 
-/**
- * Boots the scene and returns the Phaser.Game so the caller can destroy it.
- *
- * Exported instead of run at import time: the Vue Game page mounts and unmounts
- * as the user navigates, but a module only ever imports once. Booting on import
- * would start the game on the first visit and never again — and the module-level
- * state above would leak from one play into the next, so it is reset here.
- */
 export function bootGame() {
     touchCleanups.forEach((undo) => undo());
     touchCleanups = [];

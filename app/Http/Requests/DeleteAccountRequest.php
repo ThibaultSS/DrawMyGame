@@ -13,10 +13,6 @@ class DeleteAccountRequest extends FormRequest
     }
 
     /**
-     * Confirmed by typing your username, not your password: accounts created
-     * through Google never set one, and asking for it would leave those people
-     * unable to delete their own account.
-     *
      * @return array<string, array<int, mixed>>
      */
     public function rules(): array

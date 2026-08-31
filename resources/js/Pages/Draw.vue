@@ -1,22 +1,9 @@
 <script setup>
-/**
- * The drawing page: instead of photographing a picture on paper, draw the level
- * right here and play it. The canvas has the engine's exact world size
- * (1500×800), so what is drawn is pixel-for-pixel what the game will parse, and
- * the colour-picking step disappears entirely: the server owns the palette and
- * passes it in as a prop, so every stroke is already in a colour the engine
- * will be told to look for.
- *
- * Drawing uses pointer events so mouse, touch and stylus all behave the same,
- * and undo is a small stack of full-canvas snapshots — crude, but bounded and
- * obviously correct. Before posting, the page checks that the three required
- * colours actually appear on the canvas, because the equivalent failure in the
- * photo flow was a game that silently could not start.
- */
 import { onMounted, ref } from "vue";
 import { Head, router } from "@inertiajs/vue3";
 
 import AppLayout from "../Layouts/AppLayout.vue";
+import ColourSwatch from "../Components/ColourSwatch.vue";
 import { colorClashMessage, colorsTooClose, detectRoleIssues, roleIssueMessage } from "../game/roleCheck.js";
 import { DETECTION } from "../game/config.js";
 import { putLevel } from "../levelStore.js";
@@ -28,23 +15,13 @@ const props = defineProps({
     }
 });
 
-// The engine's fixed world size; the canvas keeps this internal grid no matter
-// how large or small CSS displays it.
 const WIDTH = 1500;
 const HEIGHT = 800;
 
-// The paper colour. Also what the eraser paints with, since erasing here means
-// "back to blank paper", not "back to transparent".
 const PAPER = "#ffffff";
 
-// Full-canvas snapshots are not small, so the undo stack is capped.
 const MAX_UNDO = 20;
 
-// One button per role the server sent. The colours are never hardcoded here:
-// the engine will be told exactly these values, so the canvas has to contain
-// them byte-for-byte, and the prop is the single source of truth.
-// The server's palette is where these start, not what they are: each colour is
-// yours to change, and the swatch follows.
 const roles = ref(
     Object.entries(props.palette).map(([key, color]) => ({
         key,
@@ -60,36 +37,23 @@ function colorOf(key) {
 const canvas = ref(null);
 const activeRole = ref("platform");
 const eraser = ref(false);
-// Defaults to a size whose single dot already survives the detector's minimum
-// shape size; thinner brushes still work for lines, which cover more pixels.
 const brushSize = ref(24);
 const undoStack = ref([]);
 const validationError = ref("");
 
-// toBlob and the level store are both asynchronous, so the button has to be
-// closed by hand — there is no form doing it for us.
 const submitting = ref(false);
 
-// The 2d context and the in-progress stroke are plain variables: nothing in
-// the template depends on them, so reactivity would only add overhead.
 let ctx = null;
 let drawing = false;
 let activePointerId = null;
 let lastX = 0;
 let lastY = 0;
 
-// Undo restores through an <img> load, which is asynchronous; while one is in
-// flight, another undo or a fresh stroke would race the onload and land out of
-// order, so both wait for it.
 let restoring = false;
 
 onMounted(() => {
     ctx = canvas.value.getContext("2d");
 
-    // Start on white paper, not transparency: a transparent pixel reads as
-    // (0, 0, 0) to the colour detector, which is indistinguishable from a
-    // black platform colour — an empty canvas would parse as one giant
-    // platform filling the whole world.
     paintPaper();
 });
 
@@ -98,15 +62,6 @@ function paintPaper() {
     ctx.fillRect(0, 0, WIDTH, HEIGHT);
 }
 
-/**
- * Changes a role's colour, and repaints everything already drawn in it.
- *
- * Without the repaint, strokes made before the change keep the old colour and
- * simply stop being platforms — the level would look right and parse wrong,
- * which is the exact failure the role check exists to prevent.
- *
- * A snapshot goes on the undo stack first, so this reverses like any stroke.
- */
 function changeColor(key, next) {
     const previous = colorOf(key);
 
@@ -122,16 +77,6 @@ function changeColor(key, next) {
     validationError.value = "";
 }
 
-/**
- * Repaints every pixel the detector would have read as the old colour.
- *
- * Within the detector's own tolerance rather than an exact match, because a
- * stroke is anti-aliased: its edge pixels are blends, and an exact match would
- * leave a fringe of the old colour around every shape.
- *
- * Pixels near the paper are left alone. They are the outer half of that same
- * fringe, and repainting them would creep outwards over the page.
- */
 function repaint(from, to) {
     const image = ctx.getImageData(0, 0, WIDTH, HEIGHT);
     const data = image.data;
@@ -173,8 +118,6 @@ function selectRole(key) {
     eraser.value = false;
 }
 
-// The pointer lands in displayed coordinates; scale it to the fixed internal
-// grid before drawing, the same idea as the eyedropper on the settings page.
 function canvasPoint(event) {
     const rect = canvas.value.getBoundingClientRect();
 
@@ -185,8 +128,6 @@ function canvasPoint(event) {
 }
 
 function startStroke(event) {
-    // Only the primary button draws: a right-click would otherwise leave a
-    // stray dot just before the context menu opens.
     if (drawing || restoring || event.button !== 0) {
         return;
     }
@@ -194,8 +135,6 @@ function startStroke(event) {
     drawing = true;
     activePointerId = event.pointerId;
 
-    // Capture the pointer so the stroke keeps going when it briefly leaves
-    // the canvas instead of cutting off at the border.
     canvas.value.setPointerCapture(event.pointerId);
 
     pushSnapshot();
@@ -211,8 +150,6 @@ function startStroke(event) {
 
     const { x, y } = canvasPoint(event);
 
-    // A click without movement must still leave a mark, and a zero-length
-    // stroke is not reliably rendered, so every stroke starts as a filled dot.
     ctx.beginPath();
     ctx.arc(x, y, brushSize.value / 2, 0, Math.PI * 2);
     ctx.fill();
@@ -255,9 +192,6 @@ function pushSnapshot() {
 }
 
 function undo() {
-    // Not while a stroke is in progress: pointer capture only binds the
-    // drawing finger, so on touch a second finger can reach this button
-    // mid-stroke and would consume the stroke's own snapshot.
     if (restoring || drawing) {
         return;
     }
@@ -272,8 +206,6 @@ function undo() {
 
     const image = new Image();
 
-    // Every snapshot is a full opaque canvas, so drawing it back covers
-    // everything — no clear needed first.
     image.onload = () => {
         ctx.drawImage(image, 0, 0);
         restoring = false;
@@ -286,8 +218,6 @@ function clearCanvas() {
         return;
     }
 
-    // A native confirm for now, same as deleting a drawing on the account
-    // page: it is the one thing between a stray click and a lost drawing.
     if (! window.confirm("Clear the whole drawing? This cannot be undone.")) {
         return;
     }
@@ -297,10 +227,6 @@ function clearCanvas() {
     validationError.value = "";
 }
 
-/**
- * The roles the engine must find. Hazards are left out on purpose: a level
- * without danger is still playable.
- */
 function requiredRoles() {
     return roles.value.filter((role) => role.key !== "hazard");
 }
@@ -330,14 +256,8 @@ function submit() {
     submitting.value = true;
 
     canvas.value.toBlob(async (blob) => {
-        // The drawing stays in the browser, exactly like a photographed level.
-        // It only reaches the server if this level is saved to an account.
         await putLevel(blob);
 
-        // The palette is fixed, so there is no colour to pick: the values the
-        // canvas was painted with go straight to the endpoint the eyedropper
-        // posts to, and the server redirects into the game. Inertia follows
-        // that redirect, so there is nothing to handle on success here.
         router.post("/start-game", {
             platformColor: colorOf("platform"),
             goalColor: colorOf("goal"),
@@ -380,20 +300,10 @@ function submit() {
                         :class="! eraser && activeRole === role.key ? 'bg-ink text-page' : 'border border-sub'"
                         @click="selectRole(role.key)"
                     >
-                        <!--
-                            The one inline style on the page: the swatch shows
-                            this role's colour, which by definition is not part
-                            of the house palette.
-                        -->
-                        <span class="size-3 border border-sub" :style="{ backgroundColor: role.color }"></span>
+                        <ColourSwatch :colour="role.color" />
                         {{ role.label }}
                     </button>
 
-                    <!--
-                        change, not input: a colour picker fires input
-                        continuously while it is dragged, and every one of those
-                        would repaint a million pixels.
-                    -->
                     <input
                         type="color"
                         :value="role.color"
@@ -443,11 +353,6 @@ function submit() {
 
             </div>
 
-            <!--
-                Internal size is the engine's world, display size is whatever
-                fits: w-full with h-auto keeps the 1500×800 ratio. touch-none
-                stops touch drawing from scrolling the page instead.
-            -->
             <canvas
                 ref="canvas"
                 :width="WIDTH"

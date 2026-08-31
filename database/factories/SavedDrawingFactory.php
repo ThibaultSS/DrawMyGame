@@ -19,9 +19,6 @@ class SavedDrawingFactory extends Factory
     {
         return [
             'user_id' => User::factory(),
-            // The same shape ->store() produces, and unique per drawing: two
-            // rows sharing a path means sharing a file, which the delete logic
-            // treats as a level saved from someone else's.
             'image_path' => 'levels/'.Str::random(40).'.png',
             'published' => false,
         ];

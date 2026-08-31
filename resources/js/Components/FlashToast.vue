@@ -1,16 +1,4 @@
 <script setup>
-/**
- * The toast for one-shot messages. It lives in AppLayout, so any page whose
- * action ends in back()->with('message', ...) gets feedback without writing its
- * own timer — saving, publishing and deleting all land here.
- *
- * It listens two ways. The watcher covers anything the server flashed; the
- * document event covers what the server never saw, which is the interesting
- * case: a request that was refused, or a level that was gone before a request
- * was made. A DOM event rather than writing into the shared props, for the same
- * reason the engine announces a win that way — nothing has to reach into
- * anything else's state.
- */
 import { onMounted, onUnmounted, ref, watch } from "vue";
 import { usePage } from "@inertiajs/vue3";
 
@@ -32,9 +20,6 @@ function show(message) {
     }, 3000);
 }
 
-// The watcher observes the flash object rather than the message string: the
-// object is rebuilt on every Inertia response, so doing the same action twice
-// in a row still re-triggers the toast even though the text is identical.
 watch(() => page.props.flash, (flash) => show(flash?.message));
 
 function onFlashEvent(event) {

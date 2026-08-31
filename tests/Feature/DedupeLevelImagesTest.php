@@ -8,10 +8,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
-/**
- * The one-off that collapses the duplicate files left behind by the old rule,
- * where saving someone else's level copied its image.
- */
 class DedupeLevelImagesTest extends TestCase
 {
     use RefreshDatabase;
@@ -22,9 +18,6 @@ class DedupeLevelImagesTest extends TestCase
 
         $drawings = $this->threeDrawingsSharingOnePicture();
 
-        // Three files of one picture: two go, one survives under the content
-        // name. A dry run that miscounts the survivor as a deletion is worse
-        // than no dry run, because it is read as a decision.
         $this->artisan('levels:dedupe --dry-run')
             ->expectsOutputToContain('Would remove 2 duplicate file(s) across 1 distinct picture(s).')
             ->assertSuccessful();
@@ -43,19 +36,15 @@ class DedupeLevelImagesTest extends TestCase
 
         $this->artisan('levels:dedupe')->assertSuccessful();
 
-        // One file left, and it is named after the picture's own hash.
         $files = Storage::disk('local')->files('levels');
         $this->assertCount(1, $files);
         $this->assertSame('levels/'.hash('sha256', 'same-picture').'.png', $files[0]);
 
-        // Every drawing points at it, and nothing lost its image.
         foreach ($drawings as $drawing) {
             $this->assertSame($files[0], $drawing->fresh()->image_path);
         }
     }
 
-    // A trashed row left naming a file that is about to be deleted is what the
-    // still-referenced guard and levels:prune both read, so it is repointed too
     public function test_trashed_drawings_are_repointed_as_well()
     {
         Storage::fake('local');
@@ -71,8 +60,6 @@ class DedupeLevelImagesTest extends TestCase
         $this->assertSame($expected, SavedDrawing::withTrashed()->find($trashed->id)->image_path);
     }
 
-    // The point is to stop one picture being stored many times, not to merge
-    // pictures that merely sit in the same folder
     public function test_different_pictures_are_left_alone()
     {
         Storage::fake('local');
@@ -88,8 +75,6 @@ class DedupeLevelImagesTest extends TestCase
         $this->assertCount(2, Storage::disk('local')->files('levels'));
     }
 
-    // A lone file still gets renamed to its content name, or a later upload of
-    // the same picture would write a second file and start the duplication over
     public function test_a_single_file_is_renamed_to_its_content_name()
     {
         Storage::fake('local');
@@ -107,9 +92,6 @@ class DedupeLevelImagesTest extends TestCase
     }
 
     /**
-     * Three separate drawings holding byte-identical files under three names —
-     * what the old copy-on-save rule produced.
-     *
      * @return array<string, SavedDrawing>
      */
     private function threeDrawingsSharingOnePicture(): array

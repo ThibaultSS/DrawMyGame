@@ -2,18 +2,7 @@ import { describe, it, expect, beforeEach } from "vitest";
 
 import { putLevel, getLevel, clearLevel } from "../levelStore.js";
 
-/**
- * Node has no IndexedDB, so every call here falls through to the module's
- * in-memory fallback — the path a browser only takes when a privacy mode
- * refuses to open a database.
- *
- * That still pins the contract the pages depend on: a blob goes in, the same
- * blob comes back, and clearing empties it. The IndexedDB path itself is only
- * exercised in a real browser (see the manual walkthrough), because covering it
- * here would mean adding fake-indexeddb as a dependency.
- */
 describe("levelStore", () => {
-
     const level = () => new Blob(["a drawing"], { type: "image/png" });
 
     beforeEach(async () => {

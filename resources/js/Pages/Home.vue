@@ -1,27 +1,13 @@
 <script setup>
-/**
- * The landing page: a banner video you can read over, then the loop explained
- * at length — draw a level, photograph it, play it, and play everyone else's.
- *
- * The video is decoration, so it is aria-hidden and muted — browsers refuse to
- * autoplay anything with sound anyway, and this file has an audio track. It
- * sits on a black section, so the hero is readable from the first paint
- * whether or not a single frame has arrived yet.
- */
 import { Head, Link } from "@inertiajs/vue3";
 
 import AppLayout from "../Layouts/AppLayout.vue";
 import ScrollCue from "../Components/ScrollCue.vue";
 
-// A 48-second loop behind the page copy is exactly what this setting is for.
-// Without autoplay the video holds still and gains its own controls, so it is
-// there for anyone who does want to watch it.
 const reduceMotion =
     typeof window !== "undefined" &&
     window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-// The how-it-works sections, as data: the alternating image side is then one
-// class binding instead of four hand-mirrored blocks of markup.
 const SECTIONS = [
     {
         title: "Start Drawing!",
@@ -69,11 +55,6 @@ const SECTIONS = [
 
     <AppLayout>
 
-        <!--
-            The hero. bg-ink is not just a fallback: the video is 6 MB and only
-            its metadata is preloaded, so the black ground with white type on it
-            is what the first paint actually shows.
-        -->
         <section class="relative flex min-h-[calc(100svh_-_5rem)] items-center justify-center overflow-hidden bg-ink">
 
             <video
@@ -89,8 +70,6 @@ const SECTIONS = [
                 tabindex="-1"
             ></video>
 
-            <!-- Without this the copy is only as readable as whatever frame
-                 happens to be showing behind it. -->
             <div class="absolute inset-0 bg-ink/50"></div>
 
             <div class="relative flex w-full max-w-6xl flex-col items-center gap-6 px-6 py-24 text-center text-page">
@@ -129,8 +108,6 @@ const SECTIONS = [
                 class="flex flex-col gap-8 md:flex-row md:items-center md:gap-12"
                 :class="{ 'md:flex-row-reverse': index % 2 === 1 }"
             >
-                <!-- Below the fold, and one of these is a 936 KB photograph,
-                     so none of them are fetched until they are scrolled to. -->
                 <img
                     :src="section.image"
                     :alt="section.alt"

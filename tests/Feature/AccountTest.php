@@ -10,17 +10,9 @@ use Illuminate\Support\Facades\Storage;
 use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
 
-/**
- * Managing the account itself: the name other people see, the password, and
- * getting rid of the whole thing.
- */
 class AccountTest extends TestCase
 {
     use RefreshDatabase;
-
-    /* -------------------------------------------------------------- *
-     * Username
-     * -------------------------------------------------------------- */
 
     public function test_a_user_can_change_their_username()
     {
@@ -45,8 +37,6 @@ class AccountTest extends TestCase
         $this->assertSame('mine', $user->fresh()->username);
     }
 
-    // Your own name is not a collision with itself — without ignore() on the
-    // unique rule, saving the form unchanged would be refused as taken
     public function test_saving_your_own_username_unchanged_is_allowed()
     {
         $user = User::factory()->create(['username' => 'mine']);
@@ -56,7 +46,6 @@ class AccountTest extends TestCase
             ->assertSessionHasNoErrors();
     }
 
-    // It is the name on every community card, so it follows the level
     public function test_the_new_username_shows_on_their_community_levels()
     {
         $user = User::factory()->create(['username' => 'oldname']);
@@ -69,18 +58,13 @@ class AccountTest extends TestCase
         );
     }
 
-    /**
-     * A username prints on every gallery card and every leaderboard row, so its
-     * shape is everyone's problem, not just its owner's. It used to be 255
-     * characters of anything at all.
-     */
     public function test_a_username_must_look_like_a_username()
     {
         $user = User::factory()->create(['username' => 'mine']);
 
         $refused = [
-            'ab',                          // under the minimum
-            str_repeat('a', 31),           // over the maximum
+            'ab',
+            str_repeat('a', 31),
             'has a space',
             'has.a.dot',
             'ünïcödé',
@@ -118,10 +102,6 @@ class AccountTest extends TestCase
         $this->assertDatabaseMissing('users', ['email' => 'new@example.com']);
     }
 
-    /* -------------------------------------------------------------- *
-     * Password
-     * -------------------------------------------------------------- */
-
     public function test_a_user_can_change_their_password()
     {
         $user = User::factory()->create();
@@ -137,8 +117,6 @@ class AccountTest extends TestCase
         $this->assertTrue(Hash::check('BrandNewPassword1!', $user->fresh()->password));
     }
 
-    // A borrowed, still-signed-in browser should not be able to lock the owner
-    // out of their own account
     public function test_changing_the_password_needs_the_current_one()
     {
         $user = User::factory()->create();
@@ -167,12 +145,6 @@ class AccountTest extends TestCase
             ->assertSessionHasErrors('password');
     }
 
-    /* -------------------------------------------------------------- *
-     * Deleting the account
-     * -------------------------------------------------------------- */
-
-    // Confirmed by typing the username, not the password: people who signed in
-    // with Google never set one
     public function test_deleting_an_account_needs_the_username_typed_exactly()
     {
         $user = User::factory()->create(['username' => 'goodbye']);
@@ -193,8 +165,6 @@ class AccountTest extends TestCase
         $this->assertDatabaseMissing('users', ['id' => $user->id]);
     }
 
-    // A published level is already out in the community — other people have
-    // played it and voted on it — so it stays. A private draft does not.
     public function test_deleting_an_account_keeps_published_levels_and_removes_drafts()
     {
         Storage::fake('local');
@@ -238,12 +208,6 @@ class AccountTest extends TestCase
         );
     }
 
-    /**
-     * Deleting an account removes its drafts, so an unpublished level with no
-     * author should not exist — but if one ever did, a signed-out visitor's id
-     * is null and so is its owner, and without an explicit check the two would
-     * match and hand over a private level.
-     */
     public function test_an_unpublished_level_with_no_author_stays_hidden_from_guests()
     {
         Storage::fake('local');

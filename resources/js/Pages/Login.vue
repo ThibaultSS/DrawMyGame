@@ -1,12 +1,4 @@
 <script setup>
-/**
- * Login and register, on one centred card.
- *
- * Both forms use Inertia's useForm, which is the whole point of the migration
- * here: a failed attempt no longer reloads the page, so validation errors appear
- * without throwing away what was typed. The old Blade form had no old('email'),
- * so a wrong password cleared the email field every time.
- */
 import { ref } from "vue";
 import { Head, useForm } from "@inertiajs/vue3";
 
@@ -38,10 +30,6 @@ function submitRegister() {
     });
 }
 
-/**
- * A field in error turns red, border and message both. Everything else on the
- * page is black on white, so an error rendered in black reads as another label.
- */
 function fieldClass(error) {
     return [
         "mt-1 w-full border px-3 py-2 outline-none",
@@ -56,9 +44,6 @@ function fieldClass(error) {
     <AppLayout>
         <div class="flex min-h-[32rem] flex-col items-center justify-center px-6 py-16">
 
-            <!-- max-w-sm here rather than on the block inside: the flex
-                 parent centres this, and a full-width section would leave the
-                 form itself pinned to the left edge. -->
             <section class="w-full max-w-md border border-sub p-8">
                 <div class="w-full">
 
@@ -94,10 +79,6 @@ function fieldClass(error) {
                             >
                         </div>
 
-                        <!--
-                            One message for every failure. The server deliberately does not
-                            say whether it was the email or the password that was wrong.
-                        -->
                         <p v-if="loginForm.errors.email" class="text-sm text-error" role="alert">
                             {{ loginForm.errors.email }}
                         </p>
@@ -190,20 +171,16 @@ function fieldClass(error) {
                         <span class="h-px flex-1 bg-sub"></span>
                     </div>
 
-                    <!--
-                        A real browser navigation, never an Inertia <Link>: /auth/google
-                        redirects off-site to Google, which is not an Inertia response.
-                    -->
                     <a
                         href="/auth/google"
                         class="mt-4 flex w-full items-center justify-center gap-3 border border-sub px-4 py-2"
                     >
-                        <img
-                            src="https://developers.google.com/identity/images/g-logo.png"
-                            alt=""
-                            width="18"
-                            height="18"
-                        >
+                        <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+                            <path fill="#4285F4" d="M45.1 24.5c0-1.6-.1-3.1-.4-4.5H24v8.5h11.8c-.5 2.7-2 5-4.4 6.6v5.5h7.1c4.2-3.8 6.6-9.5 6.6-16.1z" />
+                            <path fill="#34A853" d="M24 46c6 0 11-2 14.6-5.4l-7.1-5.5c-2 1.3-4.5 2.1-7.5 2.1-5.8 0-10.7-3.9-12.400-9.1H4.2v5.7C7.8 41.1 15.3 46 24 46z" />
+                            <path fill="#FBBC05" d="M11.6 28.1c-.5-1.3-.7-2.7-.7-4.1s.3-2.8.7-4.1v-5.7H4.2C2.8 17 2 20.4 2 24s.8 7 2.2 9.8l7.4-5.7z" />
+                            <path fill="#EA4335" d="M24 10.4c3.3 0 6.2 1.1 8.5 3.3l6.3-6.3C35 3.9 30 2 24 2 15.3 2 7.8 6.9 4.2 14.2l7.4 5.7c1.7-5.2 6.6-9.5 12.4-9.5z" />
+                        </svg>
                         Continue with Google
                     </a>
 

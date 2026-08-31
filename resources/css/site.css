@@ -1,22 +1,11 @@
-/*
- * The application's only stylesheet.
- *
- * Nothing was carried over from the hand-written app.css the Blade views used:
- * that file is gone, and everything here starts from the house style below.
- * Page-level styling belongs in the Vue components as Tailwind utilities.
- */
 @import 'tailwindcss';
 
 @source '../js/**/*.vue';
 
-/* The house style. Every colour used anywhere should come from here. */
 @theme {
     --color-page: #ffffff;
     --color-ink: #000000;
     --color-sub: #d9d9d9;
-
-    /* The one colour outside the house style, and only ever for errors. On a page
-       that is otherwise black on white, an error in black reads as a label. */
     --color-error: #c81e1e;
 }
 

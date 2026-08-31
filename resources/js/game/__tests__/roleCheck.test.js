@@ -11,16 +11,12 @@ import {
 import { DETECTION } from "../config.js";
 import { createImage } from "./helpers.js";
 
-// The three roles a level cannot do without. Hazards are optional, so callers
-// pass only what they require and these tests do the same.
 const ROLES = [
     { key: "platform", color: "#000000", label: "Platform" },
     { key: "goal", color: "#00ff00", label: "Goal" },
     { key: "player", color: "#0000ff", label: "Player" }
 ];
 
-// minShapeSize is 300, so 20x20 = 400 pixels survives detection and 10x10 = 100
-// does not. That gap is the whole reason this helper exists.
 const BIG = 20;
 const SMALL = 10;
 
@@ -47,7 +43,6 @@ function imageWith(sizes) {
 }
 
 describe("detectRoleIssues", () => {
-
     it("finds no problem when every role is drawn big enough", () => {
         const image = imageWith({ platform: BIG, goal: BIG, player: BIG });
 
@@ -66,8 +61,6 @@ describe("detectRoleIssues", () => {
         expect(issues.tooSmall).toEqual([]);
     });
 
-    // The distinction the helper exists for: a naive "is this colour present?"
-    // check passes here and still yields a game with no player in it.
     it("reports a role drawn below the minimum shape size as too small", () => {
         const image = imageWith({ platform: BIG, goal: BIG, player: SMALL });
 
@@ -88,7 +81,6 @@ describe("detectRoleIssues", () => {
 });
 
 describe("hasAnyPixelOf", () => {
-
     it("finds a colour that is present", () => {
         const image = imageWith({ platform: SMALL });
 
@@ -104,7 +96,6 @@ describe("hasAnyPixelOf", () => {
 });
 
 describe("listOfRoles", () => {
-
     it("names one role", () => {
         expect(listOfRoles([{ label: "Player" }])).toBe("a player");
     });
@@ -117,7 +108,6 @@ describe("listOfRoles", () => {
 });
 
 describe("roleIssueMessage", () => {
-
     it("says nothing when the level will parse", () => {
         expect(roleIssueMessage({ missing: [], tooSmall: [] })).toBe("");
     });
@@ -127,8 +117,6 @@ describe("roleIssueMessage", () => {
             .toBe("Your level still needs a goal.");
     });
 
-    // Never drawn and drawn-too-small need different advice, and the first is
-    // the more basic problem, so it is the one reported.
     it("prefers the missing message when both apply", () => {
         const message = roleIssueMessage({
             missing: [{ label: "Goal" }],
@@ -146,7 +134,6 @@ describe("roleIssueMessage", () => {
 });
 
 describe("colorsTooClose", () => {
-
     const role = (key, color) => ({ key, color, label: key });
 
     it("passes colours that are far apart", () => {
@@ -159,8 +146,6 @@ describe("colorsTooClose", () => {
         expect(clashes).toEqual([]);
     });
 
-    // The detector compares squared distance against squared tolerance, so the
-    // boundary is where a pixel stops matching both colours at once.
     it("catches two colours inside the detector's tolerance", () => {
         const justInside = DETECTION.colorTolerance - 1;
         const hex = "#" + justInside.toString(16).padStart(2, "0") + "0000";
@@ -178,8 +163,6 @@ describe("colorsTooClose", () => {
         expect(colorsTooClose([role("platform", "#000000"), role("goal", hex)])).toEqual([]);
     });
 
-    // The paper is white, and a colour close to it turns the page itself into a
-    // shape — which is a different problem needing different advice.
     it("catches a colour too close to the paper", () => {
         const clashes = colorsTooClose([role("platform", "#fffefe")]);
 
@@ -190,7 +173,6 @@ describe("colorsTooClose", () => {
 });
 
 describe("colorClashMessage", () => {
-
     const role = (key, color) => ({ key, color, label: key });
 
     it("says nothing when the colours work", () => {

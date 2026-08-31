@@ -1,13 +1,4 @@
 <script setup>
-/**
- * The shell every page sits in: a top bar with the nav and the account chip,
- * and a slim footer.
- *
- * Now that every page is an Inertia page, the nav uses <Link> throughout: a
- * Link fetches its target over XHR and swaps the page component in place, so
- * navigation keeps the app state and skips the full reload. Only off-site
- * destinations (like /auth/google on the login page) still need a plain <a>.
- */
 import { computed } from "vue";
 import { Link, usePage } from "@inertiajs/vue3";
 
@@ -22,8 +13,6 @@ const NAV_LINKS = [
     { label: "Community", href: "/community" }
 ];
 
-// Shared from HandleInertiaRequests::share(), so every page has it without
-// having to pass it through as a prop.
 const user = computed(() => usePage().props.auth.user);
 
 const year = new Date().getFullYear();
@@ -49,8 +38,6 @@ const year = new Date().getFullYear();
                         {{ link.label }}
                     </Link>
 
-                    <!-- Logging out lives on the account page, with the rest of
-                         what you can do to your account. -->
                     <Link
                         v-if="user"
                         href="/account"
@@ -87,9 +74,6 @@ const year = new Date().getFullYear();
                         {{ link.label }}
                     </Link>
 
-                    <!-- Footer only, so it is deliberately not in NAV_LINKS:
-                         that array feeds the top nav as well, and this does not
-                         belong up there. -->
                     <Link href="/cookies" class="hover:underline">
                         Cookies
                     </Link>

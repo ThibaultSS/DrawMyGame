@@ -1,11 +1,4 @@
 <script setup>
-/**
- * What this site stores, in full.
- *
- * The list below is the whole of it. If a cookie is ever added — analytics, or
- * anything else that is not strictly necessary — it belongs here first, and it
- * would need asking permission rather than merely saying so.
- */
 import { Head, Link } from "@inertiajs/vue3";
 
 import AppLayout from "../Layouts/AppLayout.vue";

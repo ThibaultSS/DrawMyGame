@@ -23,8 +23,6 @@ class RegisteredUserController extends Controller
 
         Auth::login($user);
 
-        // Same as after a login: a fresh session id, so a session planted before
-        // signing up cannot be reused afterwards.
         $request->session()->regenerate();
 
         return redirect()->route('home');

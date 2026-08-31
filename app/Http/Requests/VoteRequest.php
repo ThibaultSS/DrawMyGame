@@ -8,10 +8,6 @@ use Illuminate\Validation\Rule;
 
 class VoteRequest extends FormRequest
 {
-    /**
-     * The route sits in the auth group; the controller decides whether this
-     * particular drawing may be voted on.
-     */
     public function authorize(): bool
     {
         return true;

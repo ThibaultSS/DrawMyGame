@@ -12,13 +12,6 @@ class StartGameRequest extends FormRequest
     }
 
     /**
-     * Three colours make a level: something to stand on, somewhere to get to,
-     * and someone to move. The old form let an empty submit through and the
-     * game silently broke on the first missing hex value.
-     *
-     * Hazards are optional — a level with nothing dangerous in it is still a
-     * level, and demanding one meant inventing a danger to get past this page.
-     *
      * @return array<string, array<int, string>>
      */
     public function rules(): array

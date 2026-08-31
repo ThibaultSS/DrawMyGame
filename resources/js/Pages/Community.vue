@@ -1,18 +1,4 @@
 <script setup>
-/**
- * The community gallery: every published drawing, each one a link into the
- * play flow.
- *
- * The old Blade card was a div with an onclick that set window.location, so it
- * was never a real link: middle-click, keyboard focus and "open in new tab" all
- * did nothing. Here the whole card is a <Link>, which fixes all three and keeps
- * the navigation inside Inertia.
- *
- * Cards now carry what a level is (title, description) and how it stands
- * (likes, dislikes), and the gallery can be searched and reordered — without
- * that, the newest levels bury everything else and a good one is never seen
- * again once it falls off the first page.
- */
 import { onUnmounted, ref, watch } from "vue";
 import { Head, Link, router } from "@inertiajs/vue3";
 
@@ -20,14 +6,10 @@ import AppLayout from "../Layouts/AppLayout.vue";
 import Pagination from "../Components/Pagination.vue";
 
 const props = defineProps({
-    // A Laravel paginator: the cards live in drawings.data, the page links in
-    // drawings.links.
     drawings: {
         type: Object,
         required: true
     },
-    // What the server searched and sorted by, so a reload or a shared URL comes
-    // back with the controls where they were.
     filters: {
         type: Object,
         required: true
@@ -37,7 +19,6 @@ const props = defineProps({
 const search = ref(props.filters.search);
 const sort = ref(props.filters.sort);
 
-// Typing should not fire a request per keystroke.
 const DEBOUNCE_MS = 300;
 
 let debounce = null;
@@ -62,14 +43,10 @@ function applyFilters() {
     router.get(
         "/community",
         {
-            // Defaults are left out rather than spelled out, so the plain
-            // gallery keeps a clean /community URL.
             search: search.value || undefined,
             sort: sort.value === "newest" ? undefined : sort.value
         },
         {
-            // preserveState keeps the box you are typing in from being replaced
-            // underneath you; replace keeps every keystroke out of the history.
             preserveState: true,
             preserveScroll: true,
             replace: true
@@ -90,7 +67,6 @@ function applyFilters() {
                     <p class="mt-2">Play levels created by everyone in the DrawMyGame community.</p>
                 </div>
 
-                <!-- For when you do not want to choose. -->
                 <Link href="/random-level" class="bg-ink px-4 py-2 text-page">
                     Play a random level
                 </Link>
@@ -128,8 +104,6 @@ function applyFilters() {
                 </div>
             </div>
 
-            <!-- Nothing found and nothing published read the same on screen but
-                 mean different things, so they say different things. -->
             <p v-if="drawings.data.length === 0 && filters.search">
                 No levels match “{{ filters.search }}”.
             </p>
@@ -146,7 +120,6 @@ function applyFilters() {
                             :href="`/play/${drawing.id}`"
                             class="flex h-full flex-col gap-3 border border-sub p-3 hover:border-ink"
                         >
-                            <!-- The title is right below, so the alt stays generic. -->
                             <img
                                 :src="drawing.image"
                                 alt="Level drawing"
@@ -159,12 +132,7 @@ function applyFilters() {
                                 {{ drawing.description }}
                             </p>
 
-                            <!-- mt-auto pins this to the bottom, so cards with
-                                 no description still line their footers up. -->
                             <p class="mt-auto flex justify-between gap-3 text-sm">
-                                <!-- min-w-0 is what lets truncate work at all:
-                                     a flex child will not shrink below its
-                                     content without it. -->
                                 <span class="min-w-0 truncate">By {{ drawing.author }}</span>
                                 <span class="shrink-0">{{ drawing.likes }} likes · {{ drawing.dislikes }} dislikes</span>
                             </p>

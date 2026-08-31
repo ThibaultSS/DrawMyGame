@@ -9,23 +9,10 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
 
-/**
- * Publishing a level with a title and description, voting on other people's,
- * and finding your way around the gallery.
- *
- * Kept apart from GameTest, which is about getting a picture into the engine
- * and back out again — a different subject and already long enough.
- */
 class CommunityTest extends TestCase
 {
     use RefreshDatabase;
 
-    /* -------------------------------------------------------------- *
-     * Publishing
-     * -------------------------------------------------------------- */
-
-    // 1. A card in the gallery with no title says nothing about the level, so
-    // publishing without one is refused
     public function test_publishing_requires_a_title()
     {
         $user = User::factory()->create();
@@ -38,8 +25,6 @@ class CommunityTest extends TestCase
         $this->assertFalse($drawing->fresh()->published);
     }
 
-    // 1b. Not just an empty title but an empty request: the form's `required`
-    // is only a courtesy to the browser, so the server has to hold on its own
     public function test_publishing_with_an_empty_body_is_rejected()
     {
         $user = User::factory()->create();
@@ -62,7 +47,6 @@ class CommunityTest extends TestCase
             ->assertSessionHasErrors('title');
     }
 
-    // 2. Publishing stores what the gallery will show
     public function test_publishing_stores_the_title_and_description()
     {
         $user = User::factory()->create();
@@ -82,7 +66,6 @@ class CommunityTest extends TestCase
         $this->assertSame('Mind the spikes on the second jump.', $drawing->description);
     }
 
-    // 2b. A description is optional: some levels speak for themselves
     public function test_publishing_works_without_a_description()
     {
         $user = User::factory()->create();
@@ -95,7 +78,6 @@ class CommunityTest extends TestCase
         $this->assertNull($drawing->fresh()->description);
     }
 
-    // 3. Posting publish again is how the details are edited, and it says so
     public function test_publishing_again_edits_the_details()
     {
         $user = User::factory()->create();
@@ -112,8 +94,6 @@ class CommunityTest extends TestCase
         $this->assertTrue($drawing->fresh()->published);
     }
 
-    // 4. Unpublishing keeps the text: taking a level out of the gallery for a
-    // while should not mean writing it again to put it back
     public function test_unpublishing_keeps_the_title_and_description()
     {
         $user = User::factory()->create();
@@ -133,12 +113,6 @@ class CommunityTest extends TestCase
         $this->assertSame('Cave of Doom', $drawing->title);
     }
 
-    /* -------------------------------------------------------------- *
-     * Voting
-     * -------------------------------------------------------------- */
-
-    // 5. Voting needs an account — that is what makes one vote per person
-    // something the database can enforce
     public function test_voting_requires_signing_in()
     {
         $drawing = $this->publishedDrawing();
@@ -163,8 +137,6 @@ class CommunityTest extends TestCase
         ]);
     }
 
-    // 6. Pressing the same button again means "never mind" — there is no third
-    // button for taking a vote back
     public function test_voting_the_same_way_twice_withdraws_the_vote()
     {
         $drawing = $this->publishedDrawing();
@@ -176,7 +148,6 @@ class CommunityTest extends TestCase
         $this->assertSame(0, DrawingVote::count());
     }
 
-    // 6b. Changing your mind replaces the vote rather than adding a second one
     public function test_voting_the_other_way_replaces_the_vote()
     {
         $drawing = $this->publishedDrawing();
@@ -189,7 +160,6 @@ class CommunityTest extends TestCase
         $this->assertSame(-1, DrawingVote::firstOrFail()->value);
     }
 
-    // 7. Authors do not rank their own work
     public function test_you_cannot_vote_on_your_own_drawing()
     {
         $author = User::factory()->create();
@@ -202,8 +172,6 @@ class CommunityTest extends TestCase
         $this->assertSame(0, DrawingVote::count());
     }
 
-    // 7b. An unpublished level is its owner's business — 404, so the id cannot
-    // be probed for existence
     public function test_you_cannot_vote_on_an_unpublished_drawing()
     {
         $drawing = SavedDrawing::factory()->create([
@@ -224,7 +192,6 @@ class CommunityTest extends TestCase
             ->assertSessionHasErrors('value');
     }
 
-    // 8. The game page carries the standing and whether this visitor may vote
     public function test_the_game_page_carries_the_vote_state()
     {
         $drawing = $this->publishedDrawing();
@@ -260,10 +227,6 @@ class CommunityTest extends TestCase
         );
     }
 
-    /* -------------------------------------------------------------- *
-     * Finding a level
-     * -------------------------------------------------------------- */
-
     public function test_the_gallery_can_be_searched_by_title()
     {
         $author = User::factory()->create();
@@ -294,8 +257,6 @@ class CommunityTest extends TestCase
         );
     }
 
-    // 9. Searching must not smuggle unpublished drawings into the gallery: the
-    // or-clause has to stay grouped inside the published filter
     public function test_searching_does_not_reveal_unpublished_drawings()
     {
         $author = User::factory()->create();
@@ -307,8 +268,6 @@ class CommunityTest extends TestCase
         );
     }
 
-    // 10. Ranked by likes minus dislikes, so a divisive level does not outrank
-    // a quietly good one on raw likes alone
     public function test_most_liked_ranks_by_likes_minus_dislikes()
     {
         $author = User::factory()->create();
@@ -317,9 +276,9 @@ class CommunityTest extends TestCase
         $divisive = SavedDrawing::factory()->published()->create(['user_id' => $author->id, 'title' => 'Divisive']);
         SavedDrawing::factory()->published()->create(['user_id' => $author->id, 'title' => 'Unrated']);
 
-        $this->castVotes($steady, 1, 3);              // score 3
+        $this->castVotes($steady, 1, 3);
         $this->castVotes($divisive, 1, 5);
-        $this->castVotes($divisive, -1, 4);           // score 1, but more likes
+        $this->castVotes($divisive, -1, 4);
 
         $this->get('/community?sort=liked')->assertInertia(fn (AssertableInertia $page) => $page
             ->where('drawings.data.0.title', 'Steady')
@@ -331,8 +290,6 @@ class CommunityTest extends TestCase
         );
     }
 
-    // 11. Page two has to keep the search and the sort, or paging through a
-    // search silently drops back to the whole gallery
     public function test_pagination_keeps_the_search_and_sort()
     {
         $author = User::factory()->create();
@@ -345,7 +302,6 @@ class CommunityTest extends TestCase
 
         $this->get('/community?search=Cave&sort=liked')->assertInertia(fn (AssertableInertia $page) => $page
             ->has('drawings.data', 12)
-            // The generated page links carry the filters forward.
             ->where('drawings.links', fn ($links) => collect($links)->contains(
                 fn ($link) => $link['url'] && str_contains($link['url'], 'search=Cave')
             ))
@@ -359,11 +315,6 @@ class CommunityTest extends TestCase
         );
     }
 
-    /* -------------------------------------------------------------- *
-     * Helpers
-     * -------------------------------------------------------------- */
-
-    /** A published level belonging to somebody else, ready to be voted on. */
     private function publishedDrawing(): SavedDrawing
     {
         return SavedDrawing::factory()->published()->create([
@@ -376,7 +327,6 @@ class CommunityTest extends TestCase
         ]);
     }
 
-    /** One vote per voter, because the table only allows one. */
     private function castVotes(SavedDrawing $drawing, int $value, int $times): void
     {
         foreach (range(1, $times) as $ignored) {

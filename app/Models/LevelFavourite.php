@@ -18,9 +18,6 @@ class LevelFavourite extends Model
     }
 
     /**
-     * Cast because the game page compares these against the slider positions in
-     * JavaScript, where a string from the driver would never match.
-     *
      * @return array<string, string>
      */
     protected function casts(): array

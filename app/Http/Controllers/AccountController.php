@@ -5,22 +5,52 @@ namespace App\Http\Controllers;
 use App\Http\Requests\DeleteAccountRequest;
 use App\Http\Requests\UpdatePasswordRequest;
 use App\Http\Requests\UpdateUsernameRequest;
+use App\Models\LevelFavourite;
 use App\Models\SavedDrawing;
 use App\Models\User;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Inertia\Inertia;
+use Inertia\Response as InertiaResponse;
 use Symfony\Component\HttpFoundation\Response;
 
 class AccountController extends Controller
 {
-    /**
-     * The username is the only name anyone else sees — it is on every card in
-     * the community — so changing it updates those too, by being the same
-     * column they read.
-     */
+    public function index(): InertiaResponse|RedirectResponse
+    {
+        $drawings = SavedDrawing::query()
+            ->where('user_id', Auth::id())
+            ->latest()
+            ->paginate(self::PER_PAGE);
+
+        $favourites = LevelFavourite::query()
+            ->where('user_id', Auth::id())
+            ->whereHas('drawing', fn (Builder $drawing) => $drawing->where('published', true))
+            ->with('drawing.user')
+            ->latest()
+            ->paginate(self::PER_PAGE, ['*'], 'favouritesPage');
+
+        return $this->pageOutOfRange($drawings, 'account')
+            ?? Inertia::render('Account', [
+                'drawings' => $drawings->through(fn (SavedDrawing $drawing): array => [
+                    'id' => $drawing->id,
+                    'image' => route('drawings.image', $drawing),
+                    'published' => $drawing->published,
+                    'title' => $drawing->title,
+                    'description' => $drawing->description,
+                ]),
+                'favourites' => $favourites->through(fn (LevelFavourite $favourite): array => [
+                    'id' => $favourite->drawing->id,
+                    'image' => route('drawings.image', $favourite->drawing),
+                    'title' => $favourite->drawing->title,
+                    'author' => $favourite->drawing->user?->username ?? 'Unknown publisher',
+                ]),
+            ]);
+    }
+
     public function updateUsername(UpdateUsernameRequest $request): RedirectResponse
     {
         $request->user()->update(['username' => $request->validated('username')]);
@@ -37,14 +67,6 @@ class AccountController extends Controller
         return back()->with('message', 'Password updated.');
     }
 
-    /**
-     * Deleting the account, but not everything it made.
-     *
-     * A level that was published is already out in the community — other people
-     * have played it and voted on it — so it stays, and the author key becomes
-     * null; the gallery then credits it to "Unknown publisher". Unpublished
-     * drafts were never anyone else's business and go with the account.
-     */
     public function destroy(DeleteAccountRequest $request): Response
     {
         $user = $request->user();
@@ -53,25 +75,16 @@ class AccountController extends Controller
 
         Auth::logout();
 
-        // The nullOnDelete constraint is what lets the published rows survive.
         $user->delete();
 
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
-        // A full visit, like logging out: the new session and CSRF token are
-        // then picked up cleanly.
         return Inertia::location(route('home'));
     }
 
-    /**
-     * Drafts and their images, gone for good — including any already in the
-     * bin, since nothing will ever restore them now.
-     */
     private function removeUnpublishedDrawings(User $user): void
     {
-        // Chunked rather than fetched whole: this is the one query here whose
-        // size is set by how much somebody drew, and nothing else caps it.
         SavedDrawing::withTrashed()
             ->where('user_id', $user->id)
             ->where('published', false)
@@ -81,11 +94,6 @@ class AccountController extends Controller
 
                     $draft->forceDelete();
 
-                    // One picture is one file and several drawings may point at
-                    // it, so the draft's image only goes if nothing else still
-                    // names it. Live rows only, for the same reason as
-                    // destroy(): a trashed row would otherwise pin a shared file
-                    // forever.
                     $stillReferenced = SavedDrawing::query()
                         ->where('image_path', $path)
                         ->exists();

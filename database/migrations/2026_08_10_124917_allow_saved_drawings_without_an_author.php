@@ -6,15 +6,6 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * Deleting an account used to take its levels with it, because the author
-     * key cascaded. A level that has been published is out in the community
-     * already — other people have played it and voted on it — so it stays, with
-     * no author, and the gallery credits it to "Unknown publisher".
-     *
-     * Unpublished drafts are still deleted with the account; that is the
-     * controller's job, not the constraint's.
-     */
     public function up(): void
     {
         Schema::table('saved_drawings', function (Blueprint $table) {

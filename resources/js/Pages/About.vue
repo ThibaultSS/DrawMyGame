@@ -1,30 +1,14 @@
 <script setup>
-/**
- * The about page: who made DrawMyGame and what it is built with.
- *
- * Laid out exactly like the home page — the same banner treatment, the same
- * container, and the same alternating image/text sections driven by a
- * SECTIONS array — so the two pages are the same page with different words.
- */
 import { Head, Link } from "@inertiajs/vue3";
 
 import AppLayout from "../Layouts/AppLayout.vue";
 import ScrollCue from "../Components/ScrollCue.vue";
 
-/**
- * The banner artwork. Setting `image` back to null falls the banner back to a
- * plain black band with a visible heading.
- *
- * The alt is empty on purpose: the heading below already names the site to a
- * screen reader, so announcing the logo as well would say it twice.
- */
 const BANNER = {
     image: "/assets/DrawMyGame_Logo_Lang.jpg",
     alt: ""
 };
 
-// The same shape the home page uses, so the alternating side is one class
-// binding rather than two hand-mirrored blocks of markup.
 const SECTIONS = [
     {
         title: "About the website",
@@ -52,33 +36,14 @@ const SECTIONS = [
 
     <AppLayout>
 
-        <!--
-            The black is a 5 px frame, not a ground: p-[5px] on the section is
-            the whole of it, and the white panel below fills everything inside.
-
-            The panel has to be flex-1 rather than centred content, or the
-            section's height reappears as black above and below it — which is
-            where that black came from before, not from padding.
-        -->
         <section class="relative flex min-h-[calc(100svh_-_5rem)] flex-col overflow-hidden bg-ink p-[5px]">
 
             <div class="relative flex flex-1 flex-col items-center justify-center gap-8 bg-page px-8 py-16 text-center text-ink">
 
-                <!--
-                    The logo already says the site's name, so a matching heading
-                    beside it would print it twice. The heading stays in the
-                    markup for document structure and only leaves the screen.
-                -->
                 <h1 :class="BANNER.image ? 'sr-only' : 'text-4xl font-semibold tracking-tight md:text-5xl'">
                     About DrawMyGame
                 </h1>
 
-                <!--
-                    max-w-4xl is 896 px against the file's own 891 px, so the
-                    logo sits at roughly its true size however wide the window
-                    gets. Without the cap it would stretch the full width of the
-                    panel and go soft.
-                -->
                 <img
                     v-if="BANNER.image"
                     :src="BANNER.image"
@@ -119,14 +84,6 @@ const SECTIONS = [
                 class="flex flex-col gap-8 md:flex-row md:items-center md:gap-12"
                 :class="{ 'md:flex-row-reverse': index % 2 === 1 }"
             >
-                <!--
-                    A logo is not a photograph, so unlike the home page's images
-                    it sits centred in a padded frame rather than filling it.
-                    Both frames share a height so the two sections line up.
-
-                    Phaser_Logo.png is a 3 MB PNG drawn at 128 px tall, which is
-                    why these load lazily rather than competing with the banner.
-                -->
                 <div class="flex min-h-64 w-full items-center justify-center border border-sub p-8 md:w-1/2">
                     <img
                         :src="section.image"

@@ -1,16 +1,4 @@
 <script setup>
-/**
- * The saved drawings, with publish and delete.
- *
- * Publishing used to be a single toggle. It now asks for a title and, if you
- * want one, a description — a card in the gallery with neither says nothing
- * about what the level is. The form opens inside the card rather than in a
- * dialog: there is no focus trap or escape handling to get wrong, and it keeps
- * the page working the way the rest of the app does.
- *
- * Every action returns back(), so Inertia re-fetches the props and only the
- * card that changed re-renders; the layout's FlashToast shows the outcome.
- */
 import { computed, ref } from "vue";
 import { Head, Link, router, useForm, usePage } from "@inertiajs/vue3";
 
@@ -18,28 +6,18 @@ import AppLayout from "../Layouts/AppLayout.vue";
 import Pagination from "../Components/Pagination.vue";
 
 defineProps({
-    // A Laravel paginator: the cards live in drawings.data, the page links in
-    // drawings.links.
     drawings: {
         type: Object,
         required: true
     },
-    // Levels other people made that you kept. A separate paginator with its own
-    // page name, so paging one list does not page the other.
     favourites: {
         type: Object,
         required: true
     }
 });
 
-/* ------------------------------------------------------------------ *
- * The account itself
- * ------------------------------------------------------------------ */
-
 const user = computed(() => usePage().props.auth.user);
 
-// Kept closed by default: this page is for the drawings, and the three forms
-// below are a rare visit rather than the point of it.
 const showSettings = ref(false);
 
 const usernameForm = useForm({ username: user.value.username });
@@ -50,14 +28,8 @@ const passwordForm = useForm({
     password_confirmation: ""
 });
 
-// Confirmed by typing the username rather than the password: people who signed
-// in with Google never set one, and asking for it would leave them unable to
-// delete their own account.
 const deleteForm = useForm({ username: "" });
 
-// A POST, not a link: logging out changes state, and Inertia sends the CSRF
-// token for us. The route ends in Inertia::location, so the browser lands on
-// the home page with a full visit.
 function logout() {
     router.post("/logout");
 }
@@ -69,7 +41,6 @@ function saveUsername() {
 function savePassword() {
     passwordForm.patch("/account/password", {
         preserveScroll: true,
-        // Never leave passwords sitting in the page after a successful change.
         onSuccess: () => passwordForm.reset()
     });
 }
@@ -82,12 +53,6 @@ function deleteAccount() {
     deleteForm.delete("/account", { preserveScroll: true });
 }
 
-/* ------------------------------------------------------------------ *
- * The drawings
- * ------------------------------------------------------------------ */
-
-// Ids currently being changed, so a card's buttons can be disabled while its
-// request is in flight and a double click cannot fire the action twice.
 const busy = ref(new Set());
 
 function isBusy(id) {
@@ -101,11 +66,6 @@ function markBusy(id, running) {
     busy.value = next;
 }
 
-/* ------------------------------------------------------------------ *
- * Publishing
- * ------------------------------------------------------------------ */
-
-// Which card has its form open. Only ever one, so a single form is enough.
 const editingId = ref(null);
 
 const form = useForm({
@@ -116,8 +76,6 @@ const form = useForm({
 function startEditing(drawing) {
     editingId.value = drawing.id;
 
-    // Prefilled, so editing a published level starts from what it already says
-    // rather than from an empty box.
     form.title = drawing.title ?? "";
     form.description = drawing.description ?? "";
     form.clearErrors();
@@ -129,8 +87,6 @@ function cancelEditing() {
     form.clearErrors();
 }
 
-// Publishing and editing the details are the same request: "publish it, with
-// this text" describes both, so there is no second endpoint for the edit.
 function publish(drawing) {
     form.post(`/drawing/${drawing.id}/publish`, {
         preserveScroll: true,
@@ -147,8 +103,6 @@ function unpublish(drawing) {
 }
 
 function destroy(drawing) {
-    // A native confirm for now. It is the one thing standing between a stray
-    // click and a deleted drawing, so it is worth having before it is pretty.
     if (! window.confirm("Delete this drawing? This cannot be undone.")) {
         return;
     }
@@ -160,11 +114,6 @@ function destroy(drawing) {
     });
 }
 
-/**
- * A field in error turns red, border and message both — the same treatment the
- * login form gives, because on an otherwise black-on-white page an error in
- * black reads as another label.
- */
 function fieldClass(error) {
     return [
         "w-full border px-3 py-2 outline-none",
@@ -231,8 +180,6 @@ function fieldClass(error) {
 
                     <form class="flex flex-col gap-2" @submit.prevent="savePassword">
                         <h2 class="font-medium">Password</h2>
-                        <!-- Google accounts were given a random password nobody
-                             knows, so this form is not usable by them. -->
                         <p class="text-sm">Not available if you sign in with Google.</p>
 
                         <label class="text-sm" for="current-password">Current password</label>
@@ -348,7 +295,6 @@ function fieldClass(error) {
                             {{ drawing.title || "Untitled" }}
                         </p>
 
-                        <!-- The form takes the place of the buttons, in the card. -->
                         <form
                             v-if="editingId === drawing.id"
                             class="flex flex-col gap-2"
@@ -445,8 +391,6 @@ function fieldClass(error) {
                 <Pagination :links="drawings.links" />
             </template>
 
-            <!-- Levels somebody else made. They stay theirs: keeping one only
-                 remembers the speed and jump you played it at. -->
             <section class="flex flex-col gap-8">
 
                 <div>
@@ -454,8 +398,6 @@ function fieldClass(error) {
                     <p class="mt-2">Levels from the community you kept to play again.</p>
                 </div>
 
-                <!-- An empty section said nothing at all before, which reads as
-                     a page that has not finished loading. -->
                 <div v-if="favourites.data.length === 0" class="flex flex-col items-start gap-4">
                     <p>
                         You have not kept any yet. Saving a level somebody else made
@@ -471,7 +413,6 @@ function fieldClass(error) {
                             :href="`/play/${level.id}`"
                             class="flex h-full flex-col gap-3 border border-sub p-3 hover:border-ink"
                         >
-                            <!-- The title is right below, so the alt stays generic. -->
                             <img
                                 :src="level.image"
                                 alt="Level drawing"

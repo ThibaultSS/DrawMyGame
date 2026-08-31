@@ -18,9 +18,6 @@ class LevelPlay extends Model
     }
 
     /**
-     * Cast because the page prints these as a time and compares them in
-     * JavaScript, where a string from the driver would sort as text.
-     *
      * @return array<string, string>
      */
     protected function casts(): array

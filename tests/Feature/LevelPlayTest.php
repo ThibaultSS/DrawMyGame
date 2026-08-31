@@ -9,13 +9,6 @@ use Illuminate\Foundation\Testing\RefreshDatabase;
 use Inertia\Testing\AssertableInertia;
 use Tests\TestCase;
 
-/**
- * Attempts and finishing times.
- *
- * One row per person per level: attempts count the tries, best_time_ms is null
- * until it is beaten. That is what separates "tried it" from "finished it" in
- * every count on the site.
- */
 class LevelPlayTest extends TestCase
 {
     use RefreshDatabase;
@@ -35,7 +28,6 @@ class LevelPlayTest extends TestCase
         ]);
     }
 
-    // Trying again counts, but does not create a second row
     public function test_trying_again_increments_the_same_row()
     {
         $drawing = $this->publishedLevel();
@@ -73,7 +65,6 @@ class LevelPlayTest extends TestCase
         $this->assertSame(30_000, LevelPlay::firstOrFail()->best_time_ms);
     }
 
-    // Replaying a level you have already beaten must not cost you your best
     public function test_a_slower_run_leaves_the_best_time_alone()
     {
         $drawing = $this->publishedLevel();
@@ -85,11 +76,6 @@ class LevelPlayTest extends TestCase
         $this->assertSame(30_000, LevelPlay::firstOrFail()->best_time_ms);
     }
 
-    /**
-     * The clock runs in the browser, so a time is trusted input and cannot be
-     * verified. The bounds only keep out the impossible: nothing is finished
-     * instantly, and an hour is a tab left open rather than a race.
-     */
     public function test_an_impossible_time_is_rejected()
     {
         $drawing = $this->publishedLevel();
@@ -113,7 +99,6 @@ class LevelPlayTest extends TestCase
         $this->post("/drawing/{$drawing->id}/attempt")->assertRedirect('/login');
     }
 
-    // Someone else's unpublished level is a 404, so its id cannot be probed
     public function test_an_unplayable_level_cannot_be_recorded_against()
     {
         $drawing = SavedDrawing::factory()->create(['user_id' => User::factory()->create()->id]);
@@ -123,12 +108,6 @@ class LevelPlayTest extends TestCase
             ->assertNotFound();
     }
 
-    /* -------------------------------------------------------------- *
-     * What the numbers are for
-     * -------------------------------------------------------------- */
-
-    // "Beaten by 1 of 3" is the only hint a card gives at how hard a level is,
-    // so the two counts have to mean tried and finished, not tried twice
     public function test_the_game_page_reports_who_beat_it_out_of_who_tried()
     {
         $drawing = $this->publishedLevel();
@@ -188,11 +167,6 @@ class LevelPlayTest extends TestCase
     }
 
     /**
-     * A published level that plays straight away.
-     *
-     * The colours matter: without them hasGameSettings() is false and /play
-     * detours to the colour picker instead of the game.
-     *
      * @param  array<string, mixed>  $attributes
      */
     private function publishedLevel(array $attributes = []): SavedDrawing

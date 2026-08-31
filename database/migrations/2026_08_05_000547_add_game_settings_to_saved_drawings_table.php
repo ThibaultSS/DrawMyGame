@@ -6,12 +6,6 @@ use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
-    /**
-     * A saved drawing used to be only an image: every replay meant picking the
-     * four colours again, and the speed and jump the author tuned were lost.
-     * Nullable on purpose — drawings saved before this migration have none of
-     * it, and the play flow falls back to colour picking for those.
-     */
     public function up(): void
     {
         Schema::table('saved_drawings', function (Blueprint $table) {
