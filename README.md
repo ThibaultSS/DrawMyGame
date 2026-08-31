@@ -1,58 +1,156 @@
-<p align="center"><a href="https://laravel.com" target="_blank"><img src="https://raw.githubusercontent.com/laravel/art/master/logo-lockup/5%20SVG/2%20CMYK/1%20Full%20Color/laravel-logolockup-cmyk-red.svg" width="400" alt="Laravel Logo"></a></p>
+# DrawMyGame
 
-<p align="center">
-<a href="https://github.com/laravel/framework/actions"><img src="https://github.com/laravel/framework/workflows/tests/badge.svg" alt="Build Status"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/dt/laravel/framework" alt="Total Downloads"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/v/laravel/framework" alt="Latest Stable Version"></a>
-<a href="https://packagist.org/packages/laravel/framework"><img src="https://img.shields.io/packagist/l/laravel/framework" alt="License"></a>
-</p>
+Turn a hand-drawn picture into a playable platformer.
 
-## About Laravel
+You draw a level on paper, take a photo of it, and pick which colours mean
+*platform*, *goal*, *player* and *hazard*. The browser reads the photo pixel by
+pixel, turns each area of colour into a physics body, and you play it with the
+arrow keys. You can also skip the paper and draw the level straight onto a
+canvas in the browser.
 
-Laravel is a web application framework with expressive, elegant syntax. We believe development must be an enjoyable and creative experience to be truly fulfilling. Laravel takes the pain out of development by easing common tasks used in many web projects, such as:
+Levels you like can be saved to your account, published to a community gallery,
+liked or disliked, and timed against everyone else who has finished them.
 
-- [Simple, fast routing engine](https://laravel.com/docs/routing).
-- [Powerful dependency injection container](https://laravel.com/docs/container).
-- Multiple back-ends for [session](https://laravel.com/docs/session) and [cache](https://laravel.com/docs/cache) storage.
-- Expressive, intuitive [database ORM](https://laravel.com/docs/eloquent).
-- Database agnostic [schema migrations](https://laravel.com/docs/migrations).
-- [Robust background job processing](https://laravel.com/docs/queues).
-- [Real-time event broadcasting](https://laravel.com/docs/broadcasting).
+Built as a bachelor's project for Multimedia & Creative Technologies at KdG.
 
-Laravel is accessible, powerful, and provides tools required for large, robust applications.
+## Requirements
 
-## Learning Laravel
+- PHP 8.3 or newer
+- Composer
+- Node 20 or newer
+- MySQL (SQLite is used for the tests)
 
-Laravel has the most extensive and thorough [documentation](https://laravel.com/docs) and video tutorial library of all modern web application frameworks, making it a breeze to get started with the framework.
-
-In addition, [Laracasts](https://laracasts.com) contains thousands of video tutorials on a range of topics including Laravel, modern PHP, unit testing, and JavaScript. Boost your skills by digging into our comprehensive video library.
-
-You can also watch bite-sized lessons with real-world projects on [Laravel Learn](https://laravel.com/learn), where you will be guided through building a Laravel application from scratch while learning PHP fundamentals.
-
-## Agentic Development
-
-Laravel's predictable structure and conventions make it ideal for AI coding agents like Claude Code, Cursor, and GitHub Copilot. Install [Laravel Boost](https://laravel.com/docs/ai) to supercharge your AI workflow:
+## Setup
 
 ```bash
-composer require laravel/boost --dev
-
-php artisan boost:install
+composer run setup
 ```
 
-Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
+That installs the PHP and Node dependencies, copies `.env`, generates the app
+key, runs the migrations and builds the front end.
 
-## Contributing
+To work on it:
 
-Thank you for considering contributing to the Laravel framework! The contribution guide can be found in the [Laravel documentation](https://laravel.com/docs/contributions).
+```bash
+composer run dev
+```
 
-## Code of Conduct
+This runs the PHP server, the queue listener and Vite together. The site is at
+`https://drawmygame.test` when using Laravel Herd.
 
-In order to ensure that the Laravel community is welcoming to all, please review and abide by the [Code of Conduct](https://laravel.com/docs/contributions#code-of-conduct).
+## Commands
 
-## Security Vulnerabilities
+```bash
+composer run dev      # server, queue and Vite together
+composer run test     # the PHP test suite
+npm run dev           # Vite only
+npm run build         # build the front end
+npm run test          # the JavaScript test suite
+vendor/bin/pint       # format the PHP
+```
 
-If you discover a security vulnerability within Laravel, please send an e-mail to Taylor Otwell via [taylor@laravel.com](mailto:taylor@laravel.com). All security vulnerabilities will be promptly addressed.
+There are two scheduled or one-off console commands for the level images:
 
-## License
+```bash
+php artisan levels:prune             # delete images no drawing points at
+php artisan levels:dedupe --dry-run  # collapse duplicate images into one file
+```
 
-The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+## How a level is built
+
+The whole pipeline runs in the browser, in `resources/js/game/`:
+
+1. `colorDetection.js` walks the photo once and finds the connected areas of
+   each chosen colour. Anything smaller than 300 pixels is treated as noise.
+2. `shapeTracing.js` walks the edge of each area to get its outline, then
+   simplifies it to something the physics engine can use.
+3. `main.js` scales the outlines to the game world, turns them into Matter.js
+   bodies and runs the Phaser scene.
+
+`roleCheck.js` runs the same detector before a level starts, so a drawing that
+would produce no player says so instead of loading a broken level.
+
+## Where a level lives
+
+**A level you are playing is held in your browser, not on the server.** It goes
+into IndexedDB when you choose or draw it (`resources/js/levelStore.js`) and is
+only uploaded when you press Save. Most levels are played once and never kept,
+so uploading every one of them meant writing files that were only ever deleted
+again.
+
+Two things follow from that:
+
+- `POST /save-drawing` is the only route that accepts a file.
+- A level that has not been saved has no URL. It cannot be linked to and it is
+  not on the disk.
+
+Saved images live on the private disk in `storage/app/private/levels`. They are
+never served directly. `LevelImageController` is the only way to reach one, and
+it checks on every request that the drawing is published or belongs to you.
+
+## Implementation notes
+
+A few things in here are not obvious from the code:
+
+- **Colours need to be far apart.** The detector matches within a Euclidean RGB
+  distance of 70, so two colours closer than that overlap and a platform would
+  also count as a hazard. The drawing page checks this before it lets you start,
+  and also checks each colour against the white of the paper.
+- **`/game` asks for three colours, not four.** Hazards are optional, and
+  `session()->has()` reports false for a null value, so asking for the hazard
+  would send every level without one back to the upload page.
+- **One picture is one file.** Images are stored under a hash of their own
+  contents, so a level saved by fifty people is one file with fifty rows
+  pointing at it. A file is deleted once no drawing still names it.
+- **Times are measured in the browser**, because the game runs there. They are
+  bounded to something sane on the way in, but they cannot be verified.
+
+## Tests
+
+143 PHP tests and 73 JavaScript tests.
+
+```bash
+composer run test
+npm run test
+```
+
+The PHP tests cover the routes, validation, ownership and the console commands.
+The JavaScript tests cover the pixel work: colour detection, shape tracing and
+the role check.
+
+The one thing without automated coverage is the level flow itself, from choosing
+a file to playing it. The picture never reaches the server until it is saved, so
+there is nothing server-side to assert against.
+
+## Some choices worth explaining
+
+**Authentication.** The login, registration and logout controllers are written
+by hand, but they use Laravel's authentication rather than replacing it:
+`Auth::attempt` with the session guard, the `hashed` cast on the password
+column, `Password::defaults()` for the strength rules, the `auth` and `guest`
+middleware on the routes, and session regeneration on login and registration.
+Failed logins are rate limited per email *and* per IP, so guessing at one
+account cannot lock someone out from elsewhere, and they never say whether it
+was the email or the password that was wrong.
+
+What is not used is a starter kit like Breeze. Breeze generates the auth pages
+and controllers for you; it is a scaffolding tool rather than the authentication
+system. Writing those few controllers by hand kept the pages consistent with the
+rest of the site and made room for Google sign-in through Socialite alongside
+them.
+
+**Inertia instead of an API.** The pages are Vue components rendered through
+Inertia, so there is no separate API layer to keep in step with the front end.
+Controllers return pages with props, and validation errors come back to the same
+form without a reload.
+
+**Tailwind rather than custom CSS.** The only stylesheet is
+`resources/css/site.css`, which defines four colour tokens and nothing else.
+Everything else is utility classes in the components, so there is no second
+place where a style can live.
+
+**Anything you may not see is a 404, not a 403.** An id that belongs to someone
+else is indistinguishable from one that does not exist, so ids cannot be probed.
+The exception is acting on a published level that is not yours, such as voting
+on your own drawing: that is a 403, because the level is public and its
+existence is not a secret.

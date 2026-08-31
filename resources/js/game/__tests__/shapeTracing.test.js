@@ -16,13 +16,7 @@ import { rectPixels } from "./helpers.js";
 
 const WIDTH = 60;
 
-/**
- * Every consecutive pair in the ring has to be 8-connected, including the closing
- * step. That proves the outline is one continuous walk and does not jump between
- * separate edges.
- */
 function isClosedWalk(ring) {
-
     for (let i = 0; i < ring.length; i++) {
         const a = ring[i];
         const b = ring[(i + 1) % ring.length];
@@ -36,9 +30,7 @@ function isClosedWalk(ring) {
 
 }
 
-/** A bar 4 px thick running diagonally down and to the right. */
 function diagonalBar() {
-
     const shape = [];
 
     for (let i = 0; i < 25; i++) {
@@ -52,9 +44,7 @@ function diagonalBar() {
 }
 
 describe("traceBoundary", () => {
-
     it("walks around a rectangle with the right perimeter", () => {
-
         const ring = traceBoundary(rectPixels(5, 5, 20, 10), WIDTH);
 
         expect(isClosedWalk(ring)).toBe(true);
@@ -63,7 +53,6 @@ describe("traceBoundary", () => {
     });
 
     it("uses every pixel at most once", () => {
-
         const ring = traceBoundary(rectPixels(5, 5, 20, 10), WIDTH);
         const unique = new Set(ring.map(p => `${p.x},${p.y}`));
 
@@ -72,7 +61,6 @@ describe("traceBoundary", () => {
     });
 
     it("stays inside the shape", () => {
-
         const shape = rectPixels(5, 5, 20, 10);
         const members = new Set(shape.map(p => `${p.x},${p.y}`));
         const ring = traceBoundary(shape, WIDTH);
@@ -82,7 +70,6 @@ describe("traceBoundary", () => {
     });
 
     it("follows a concave L shape without jumping the gap", () => {
-
         const shape = [...rectPixels(5, 5, 20, 6), ...rectPixels(5, 11, 8, 12)];
         const ring = traceBoundary(shape, WIDTH);
 
@@ -92,11 +79,6 @@ describe("traceBoundary", () => {
     });
 
     it("does not wrap around the edge for a full width shape", () => {
-
-        // A ground platform spans the full width. The set is keyed on y * width + x,
-        // so x = -1 gives the key of (width - 1, y - 1), which is part of this shape.
-        // Without a bounds check the tracer walks off the left edge, reappears on the
-        // right one row up, and circles until the guard stops it.
         const width = 40;
         const ring = traceBoundary(rectPixels(0, 10, width, 6), width);
 
@@ -107,7 +89,6 @@ describe("traceBoundary", () => {
     });
 
     it("does not wrap around the edge for a shape against the left", () => {
-
         const ring = traceBoundary(rectPixels(0, 5, 12, 8), 40);
 
         expect(ring).toHaveLength(2 * (12 + 8) - 4);
@@ -116,7 +97,6 @@ describe("traceBoundary", () => {
     });
 
     it("does not wrap around the edge for a shape against the right", () => {
-
         const ring = traceBoundary(rectPixels(28, 5, 12, 8), 40);
 
         expect(ring).toHaveLength(2 * (12 + 8) - 4);
@@ -129,7 +109,6 @@ describe("traceBoundary", () => {
     });
 
     it("does not hang on a line one pixel high", () => {
-
         const ring = traceBoundary(rectPixels(5, 5, 12, 1), WIDTH);
 
         expect(ring.length).toBeGreaterThan(0);
@@ -140,9 +119,7 @@ describe("traceBoundary", () => {
 });
 
 describe("perpendicularDistance", () => {
-
     it("measures the distance to a horizontal line", () => {
-
         expect(perpendicularDistance(
             { x: 5, y: 3 }, { x: 0, y: 0 }, { x: 10, y: 0 }
         )).toBeCloseTo(3);
@@ -150,7 +127,6 @@ describe("perpendicularDistance", () => {
     });
 
     it("falls back to point distance when the line has no length", () => {
-
         expect(perpendicularDistance(
             { x: 3, y: 4 }, { x: 0, y: 0 }, { x: 0, y: 0 }
         )).toBeCloseTo(5);
@@ -160,9 +136,7 @@ describe("perpendicularDistance", () => {
 });
 
 describe("douglasPeucker", () => {
-
     it("drops points that sit on the straight line", () => {
-
         const points = [
             { x: 0, y: 0 },
             { x: 2, y: 0 },
@@ -176,7 +150,6 @@ describe("douglasPeucker", () => {
     });
 
     it("keeps a corner that sticks out further than epsilon", () => {
-
         const points = [
             { x: 0, y: 0 },
             { x: 5, y: 6 },
@@ -190,9 +163,7 @@ describe("douglasPeucker", () => {
 });
 
 describe("simplifyOutline", () => {
-
     it("reduces a rectangle to four corners", () => {
-
         const ring = traceBoundary(rectPixels(5, 5, 20, 10), WIDTH);
 
         expect(simplifyOutline(ring)).toHaveLength(4);
@@ -200,7 +171,6 @@ describe("simplifyOutline", () => {
     });
 
     it("reduces an L shape to six corners", () => {
-
         const shape = [...rectPixels(5, 5, 20, 6), ...rectPixels(5, 11, 8, 12)];
 
         expect(simplifyOutline(traceBoundary(shape, WIDTH))).toHaveLength(6);
@@ -208,10 +178,6 @@ describe("simplifyOutline", () => {
     });
 
     it("does not let a thin diagonal bar collapse into a line", () => {
-
-        // The thickness across the bar (about 2.8 px) is smaller than the default
-        // epsilon of 2.5. Without a guard Douglas-Peucker reads both long edges as
-        // one straight line and leaves a line with zero area.
         const simplified = simplifyOutline(traceBoundary(diagonalBar(), WIDTH));
 
         expect(simplified.length).toBeGreaterThanOrEqual(3);
@@ -220,7 +186,6 @@ describe("simplifyOutline", () => {
     });
 
     it("does not let a thin horizontal platform collapse", () => {
-
         const simplified = simplifyOutline(traceBoundary(rectPixels(5, 5, 40, 3), WIDTH));
 
         expect(simplified.length).toBeGreaterThanOrEqual(3);
@@ -229,9 +194,6 @@ describe("simplifyOutline", () => {
     });
 
     it("covers far less area than the bounding box for a diagonal bar", () => {
-
-        // The gain from polygon colliders in one number: the difference is the area
-        // where the player would otherwise hit an invisible wall.
         const simplified = simplifyOutline(traceBoundary(diagonalBar(), WIDTH));
         const bounds = getBounds(simplified);
 
@@ -241,8 +203,6 @@ describe("simplifyOutline", () => {
     });
 
     it("stays under the vertex cap", () => {
-
-        // A circle gives an outline with hundreds of points.
         const shape = [];
         const radius = 40;
 
@@ -262,9 +222,7 @@ describe("simplifyOutline", () => {
 });
 
 describe("polygonArea", () => {
-
     it("works out the area of a square", () => {
-
         expect(polygonArea([
             { x: 0, y: 0 },
             { x: 10, y: 0 },
@@ -275,7 +233,6 @@ describe("polygonArea", () => {
     });
 
     it("returns zero for a line segment", () => {
-
         expect(polygonArea([{ x: 0, y: 0 }, { x: 10, y: 10 }])).toBe(0);
 
     });
@@ -283,9 +240,7 @@ describe("polygonArea", () => {
 });
 
 describe("decimate", () => {
-
     it("leaves a ring under the cap alone", () => {
-
         const ring = rectPixels(0, 0, 1, 5);
 
         expect(decimate(ring, 10)).toHaveLength(5);
@@ -293,7 +248,6 @@ describe("decimate", () => {
     });
 
     it("thins a ring down to at most the cap", () => {
-
         const ring = rectPixels(0, 0, 1, 100);
 
         expect(decimate(ring, 10).length).toBeLessThanOrEqual(10);
@@ -303,9 +257,7 @@ describe("decimate", () => {
 });
 
 describe("getBounds", () => {
-
     it("measures a rectangle", () => {
-
         expect(getBounds([
             { x: 10, y: 20 },
             { x: 30, y: 60 },
@@ -324,7 +276,6 @@ describe("getBounds", () => {
     });
 
     it("gives a single point zero width and height", () => {
-
         const bounds = getBounds([{ x: 5, y: 5 }]);
 
         expect(bounds.width).toBe(0);
@@ -337,12 +288,9 @@ describe("getBounds", () => {
 });
 
 describe("fitToWorld", () => {
-
     const world = { width: 1500, height: 800 };
 
     it("letterboxes a photo that is taller than the world", () => {
-
-        // 4:3, the shape a phone camera gives. Height runs out first.
         const fit = fitToWorld(400, 300, world);
 
         expect(fit.scale).toBeCloseTo(800 / 300);
@@ -354,7 +302,6 @@ describe("fitToWorld", () => {
     });
 
     it("pillarboxes a photo that is wider than the world", () => {
-
         const fit = fitToWorld(3000, 1000, world);
 
         expect(fit.scale).toBeCloseTo(0.5);
@@ -366,9 +313,7 @@ describe("fitToWorld", () => {
     });
 
     it("keeps the fitted drawing inside the world", () => {
-
         [[400, 300], [3000, 1000], [1500, 800], [100, 4000]].forEach(([w, h]) => {
-
             const fit = fitToWorld(w, h, world);
 
             expect(fit.offsetX).toBeGreaterThanOrEqual(0);
@@ -381,7 +326,6 @@ describe("fitToWorld", () => {
     });
 
     it("scales up a photo smaller than the world", () => {
-
         const fit = fitToWorld(150, 80, world);
 
         expect(fit.scale).toBeCloseTo(10);
@@ -389,7 +333,6 @@ describe("fitToWorld", () => {
     });
 
     it("fills the world rather than returning NaN for an empty photo", () => {
-
         expect(fitToWorld(0, 0, world)).toMatchObject({
             scale: 1,
             width: 1500,
@@ -400,12 +343,7 @@ describe("fitToWorld", () => {
 
     });
 
-    /**
-     * The reason the step exists: a square drawn on the paper has to stay square.
-     * Scaling x and y separately turned it into a 1500x800-shaped rectangle.
-     */
     it("keeps a square square", () => {
-
         const fit = fitToWorld(400, 300, world);
 
         const corners = [
@@ -422,7 +360,6 @@ describe("fitToWorld", () => {
     });
 
     it("keeps the angle of a slope", () => {
-
         const fit = fitToWorld(400, 300, world);
 
         const start = toWorldPoint({ x: 0, y: 0 }, fit);
@@ -435,9 +372,7 @@ describe("fitToWorld", () => {
 });
 
 describe("toWorldPoint", () => {
-
     it("puts the top left of the photo at the top left of the fitted area", () => {
-
         const fit = fitToWorld(400, 300, { width: 1500, height: 800 });
 
         expect(toWorldPoint({ x: 0, y: 0 }, fit)).toMatchObject({
@@ -448,7 +383,6 @@ describe("toWorldPoint", () => {
     });
 
     it("puts the bottom right of the photo at the bottom right of the fitted area", () => {
-
         const fit = fitToWorld(400, 300, { width: 1500, height: 800 });
         const corner = toWorldPoint({ x: 400, y: 300 }, fit);
 

@@ -1,17 +1,9 @@
-/**
- * Helpers for building synthetic images for the detection tests.
- */
-
 export const BLACK = { r: 0, g: 0, b: 0 };
 export const RED = { r: 255, g: 0, b: 0 };
 export const GREEN = { r: 0, g: 255, b: 0 };
 export const BLUE = { r: 0, g: 0, b: 255 };
 
-/**
- * Builds an RGBA buffer like getImageData() returns, filled with white.
- */
 export function createImage(width, height) {
-
     const pixels = new Uint8ClampedArray(width * height * 4);
 
     pixels.fill(255);
@@ -46,11 +38,7 @@ export function createImage(width, height) {
 
 }
 
-/**
- * A block of pixels as a shape list, in the form the detection returns.
- */
 export function rectPixels(x0, y0, w, h) {
-
     const pixels = [];
 
     for (let y = y0; y < y0 + h; y++) {
@@ -63,24 +51,15 @@ export function rectPixels(x0, y0, w, h) {
 
 }
 
-/**
- * A per-colour pass over the image using a Set of "x,y" strings.
- *
- * This is the implementation currently in colorDetection.js, frozen here so a
- * later step can show that a faster version returns the same shapes.
- */
 export function legacyGetConnectedShapes(pixels, width, height, colorCheck, minShapeSize, maxShapeSize) {
-
     const visited = new Set();
     const shapes = [];
 
     function floodFill(startX, startY) {
-
         const stack = [[startX, startY]];
         const shape = [];
 
         while (stack.length > 0) {
-
             const [x, y] = stack.pop();
             const key = `${x},${y}`;
 
@@ -107,7 +86,6 @@ export function legacyGetConnectedShapes(pixels, width, height, colorCheck, minS
 
     for (let y = 0; y < height; y++) {
         for (let x = 0; x < width; x++) {
-
             if (visited.has(`${x},${y}`)) continue;
 
             if (colorCheck(x, y, pixels, width)) {
@@ -124,12 +102,7 @@ export function legacyGetConnectedShapes(pixels, width, height, colorCheck, minS
 
 }
 
-/**
- * Sorts shapes so two detection results can be compared without depending on
- * order.
- */
 export function normaliseShapes(shapes) {
-
     return shapes
         .map(shape =>
             shape

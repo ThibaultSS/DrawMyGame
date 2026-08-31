@@ -1,19 +1,12 @@
-/*
- * Stylesheet for the rebuilt, component-based pages.
- *
- * app.css is the old stylesheet and stays only for the Blade views that have not
- * been migrated yet. Nothing is carried over from it: this starts from the house
- * style and grows one component at a time.
- */
 @import 'tailwindcss';
 
 @source '../js/**/*.vue';
 
-/* The house style. Every colour used anywhere should come from here. */
 @theme {
     --color-page: #ffffff;
     --color-ink: #000000;
     --color-sub: #d9d9d9;
+    --color-error: #c81e1e;
 }
 
 body {

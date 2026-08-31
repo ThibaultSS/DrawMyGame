@@ -25,3 +25,7 @@ _ide_helper.php
 Homestead.json
 Homestead.yaml
 Thumbs.db
+
+# Local tooling, not part of the application
+/.claude
+CLAUDE.md
